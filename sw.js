@@ -1,5 +1,5 @@
 /* NeurIPS 2026 schedule — service worker: network-first with full cache fallback */
-var VERSION = 'neurips2026-v1';
+var VERSION = 'neurips2026-v2';
 var SHELL = [
   './',
   'index.html',

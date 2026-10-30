@@ -1,1 +1,1 @@
-window.NIPS_PAPERS["137695"] = [{"id":"180854","en":"Poster","authors":"Peiyan Hu"},{"id":"180861","en":"Invited talk by Lijun Wu","authors":"Lijun Wu"}];window.dispatchEvent(new CustomEvent("papers-loaded",{detail:"137695"}));
+window.NIPS_PAPERS["137695"] = [{"id":"180854","en":"Poster","ko":"포스터","authors":"Peiyan Hu"},{"id":"180861","en":"Invited talk by Lijun Wu","ko":"Lijun Wu 초청 강연","authors":"Lijun Wu"}];window.dispatchEvent(new CustomEvent("papers-loaded",{detail:"137695"}));

@@ -1,1 +1,1 @@
-window.NIPS_PAPERS["137739"] = [{"id":"176440","en":"Panel","authors":"Keshuang Li"}];window.dispatchEvent(new CustomEvent("papers-loaded",{detail:"137739"}));
+window.NIPS_PAPERS["137739"] = [{"id":"176440","en":"Panel","ko":"패널 토론","authors":"Keshuang Li"}];window.dispatchEvent(new CustomEvent("papers-loaded",{detail:"137739"}));
