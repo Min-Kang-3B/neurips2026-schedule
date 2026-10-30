@@ -1,0 +1,7 @@
+work/
+.omc/
+.DS_Store
+__pycache__/
+*.log
+PROJECT_CONTEXT.md
+.claude/
