@@ -13,6 +13,9 @@ import sys
 from collections import Counter
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from latex2text import latex_to_text as L  # noqa: E402
+
 SITE = sys.argv[1] if len(sys.argv) > 1 else '..'
 
 
@@ -74,9 +77,9 @@ def ko_or_none(d, k):
 
 def paper_entry(pid):
     p = papers_main.get(pid) or {}
-    ent = {'id': pid, 'en': p.get('title')}
+    ent = {'id': pid, 'en': L(p.get('title'))}
     if ko_titles.get(pid):
-        ent['ko'] = ko_titles[pid]
+        ent['ko'] = L(ko_titles[pid])
     for k in ('authors', 'link', 'tag', 'pos', 'psess'):
         if p.get(k):
             ent[k] = p[k]
@@ -89,9 +92,9 @@ def paper_entry(pid):
 
 def ws_paper_entry(eid, i, p):
     key = p.get('id') or f'{eid}:{i}'
-    ent = {'id': key, 'en': p['title']}
+    ent = {'id': key, 'en': L(p['title'])}
     if ko_wtitles.get(key):
-        ent['ko'] = ko_wtitles[key]
+        ent['ko'] = L(ko_wtitles[key])
     if p.get('authors'):
         ent['authors'] = p['authors']
     if p.get('link'):
@@ -148,14 +151,14 @@ for li in LOC_INFO:
         ev = {
             'id': eid, 'type': e['type'], 'kind': 'session' if e.get('paperIds') else 'simple',
             'typeName': dict(zip(('en', 'ko'), TYPE_INFO.get(e['type'], (e['type'], e['type'])))),
-            'title': {'en': e['title']},
+            'title': {'en': L(e['title'])},
             'start': st.strftime('%H:%M'), 'end': en.strftime('%H:%M') if en else None,
             'room': e.get('room'),
         }
         if en and en.date() > st.date():
             ev['endNextDay'] = True
         if ko_misc.get(f't:{eid}'):
-            ev['title']['ko'] = ko_misc[f't:{eid}']
+            ev['title']['ko'] = L(ko_misc[f't:{eid}'])
         m = re.match(r'^(Sydney|Atlanta|Paris) (Oral|Poster|Creative AI) Session (\w+)$', e['title'])
         if m:   # deterministic Korean for session names (keeps app terminology: 오럴/포스터)
             ev['title']['ko'] = f"{KO_LOC[m.group(1)]} {KO_SESS[m.group(2)]} {m.group(3)}"
@@ -177,7 +180,7 @@ for li in LOC_INFO:
         drec['links'] = links
         if ws_program.get(eid):
             drec['program'] = {'schedule': [
-                {'time': r['time'], 'en': r['title'], 'ko': ko_misc.get(f'p:{eid}:{i}', ''),
+                {'time': r['time'], 'en': L(r['title']), 'ko': L(ko_misc.get(f'p:{eid}:{i}', '')),
                  'speaker': (r.get('authors') or '').replace(' ⋅ ', ', '),
                  'kind': prog_kind(r)} for i, r in enumerate(ws_program[eid])]}
         det_out[eid] = drec
