@@ -75,6 +75,23 @@ def ko_or_none(d, k):
     return v if v else None
 
 
+MATH_SPLIT = re.compile(r'(\$\$.+?\$\$|(?<!\\)\$[^$]+?(?<!\\)\$|\\\(.+?\\\)|<[^>]+>)', re.S)
+
+
+def md_inline(html_txt):
+    """OpenReview abstracts often carry Markdown (**bold**, *italic*, `code`); render it outside math/tags."""
+    if not html_txt or not re.search(r'[*`]', html_txt):
+        return html_txt
+    parts = MATH_SPLIT.split(html_txt)
+    for i in range(0, len(parts), 2):
+        t = parts[i]
+        t = re.sub(r'\*\*(?=\S)([^*<>\n]{1,160}?)(?<=\S)\*\*', r'<strong>\1</strong>', t)
+        t = re.sub(r'(?<![\w*])\*(?=\S)([^*<>\n]{1,160}?)(?<=\S)\*(?![\w*])', r'<em>\1</em>', t)
+        t = re.sub(r'`([^`<>\n]{1,80})`', r'<code>\1</code>', t)
+        parts[i] = t
+    return ''.join(parts)
+
+
 def paper_entry(pid):
     p = papers_main.get(pid) or {}
     ent = {'id': pid, 'en': L(p.get('title'))}
@@ -83,10 +100,12 @@ def paper_entry(pid):
     for k in ('authors', 'link', 'tag', 'pos', 'psess'):
         if p.get(k):
             ent[k] = p[k]
+    if p.get('inst'):
+        ent['inst'] = '; '.join(p['inst'])
     if p.get('abs'):
-        ent['abs'] = p['abs']
+        ent['abs'] = md_inline(p['abs'])
     if ko_pabs.get(pid):
-        ent['absKo'] = ko_pabs[pid]
+        ent['absKo'] = md_inline(ko_pabs[pid])
     return ent
 
 
@@ -235,6 +254,42 @@ def write_js(path, varname, obj):
 write_js(os.path.join(SITE, 'data', 'schedule.js'), 'NIPS_SCHEDULE',
          {'locs': LOC_INFO, 'days': out_days, 'built': datetime.now().strftime('%Y-%m-%d')})
 write_js(os.path.join(SITE, 'data', 'details.js'), 'NIPS_DETAILS', det_out)
+
+# ---------- search index (titles/authors/institutions for every paper) + embeddings ----------
+ev_of_ref = {}
+for d in out_days:
+    for ev in d['events']:
+        ref = ev.get('papersRef') or ev['id']
+        ev_of_ref.setdefault(ref, ev['id'])
+emb_ids = load('emb_ids.json', [])
+emb_row = {pid: i for i, pid in enumerate(emb_ids)}
+rows, seen, emb_input = [], set(), []
+order = sorted(paper_files.items(), key=lambda kv: kv[0].startswith('orals-'))  # sessions before oral pools
+for ref, plist in order:
+    sid = ev_of_ref.get(ref)
+    if not sid:
+        continue
+    is_ws = not ref.startswith('orals-') and ref in ws_papers
+    for p in plist:
+        key = (p.get('en') or '').lower()
+        if not key or (key, is_ws) in seen:
+            continue
+        seen.add((key, is_ws))
+        rows.append([p['id'], sid, p.get('en', ''), p.get('ko', ''), p.get('authors', ''), p.get('inst', ''),
+                     p.get('tag', ''), 1 if is_ws else 0, emb_row.get(p['id'], -1)])
+        if not is_ws and p.get('abs'):
+            txt = re.sub(r'<[^>]+>', ' ', p['abs'])
+            emb_input.append([p['id'], L(p['en']) + '. ' + re.sub(r'\s+', ' ', txt).strip()])
+os.makedirs(os.path.join(SITE, 'data', 'search'), exist_ok=True)
+emb_meta = None
+if emb_ids and os.path.exists('emb.bin'):
+    import shutil
+    shutil.copy('emb.bin', os.path.join(SITE, 'data', 'search', 'emb.bin'))
+    emb_meta = {'file': 'data/search/emb.bin', 'dim': 384, 'n': len(emb_ids),
+                'model': 'Xenova/bge-small-en-v1.5'}
+write_js(os.path.join(SITE, 'data', 'search', 'index.js'), 'NIPS_INDEX', {'rows': rows, 'emb': emb_meta})
+json.dump(emb_input, open('emb_input.json', 'w'), ensure_ascii=False)
+print(f'search index rows {len(rows)} | embedding input {len(emb_input)} | embedded {len(emb_ids)}')
 for sid, plist in paper_files.items():
     with open(os.path.join(SITE, 'data', 'papers', f's{sid}.js'), 'w') as f:
         f.write(f'window.NIPS_PAPERS["{sid}"] = ')

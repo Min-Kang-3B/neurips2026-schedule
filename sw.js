@@ -1,5 +1,5 @@
 /* NeurIPS 2026 schedule — service worker: network-first with full cache fallback */
-var VERSION = 'neurips2026-v5';
+var VERSION = 'neurips2026-v6';
 var SHELL = [
   './',
   'index.html',
@@ -9,7 +9,11 @@ var SHELL = [
   'assets/icon-192.png',
   'assets/icon-512.png',
   'data/schedule.js',
-  'data/details.js'
+  'data/details.js',
+  'data/search/index.js',
+  'assets/katex/katex.min.css',
+  'assets/katex/katex.min.js',
+  'assets/katex/auto-render.min.js'
 ];
 
 self.addEventListener('install', function (e) {

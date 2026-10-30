@@ -18,7 +18,9 @@ python3 -m http.server 8643
 - **요일 탭** — 엑스포 · 튜토리얼 · 본회의 · 워크숍 일자별 타임라인
 - **한국어 ↔ English** — 이벤트 제목·소개, 논문 제목·초록 번역
 - **유형 필터** — 오럴 / 포스터 / 초청·특별 / 튜토리얼 / 워크숍·대회 / 엑스포 / 소셜 / 운영
-- **검색** — 세 개최지 전체 이벤트 + 전체 논문 제목·저자 검색
+- **논문 검색 탭** — 키워드(제목·번역 제목·저자·기관) 또는 🧠 의미 검색(브라우저 내 `bge-small-en-v1.5`, 입력은 외부 전송 없음), 개최지·본회의/워크숍·오럴 필터, 결과 상위 기관 막대
+- **현지 ↔ KST 시간 전환**, 당일 "지금 시각으로" 이동, 지난 시간대 흐리게
+- **초록 수식 KaTeX 렌더링**(오프라인 번들), 제목 LaTeX는 유니코드로 변환
 - **상세 모달** — 소개(한/영), 포스터·오럴 논문 목록과 초록, 워크숍 수록 논문, OpenReview·neurips.cc 링크
 - **위시리스트** — 카드/논문을 길게 눌러 핀, ⭐ 필터로 하루 동선 보기
 - **PWA** — 설치 + 오프라인 전체 저장
@@ -31,11 +33,13 @@ python3 -m http.server 8643
 ```bash
 cd work
 python3 -m venv venv && venv/bin/pip install beautifulsoup4 lxml requests
-venv/bin/python ../scripts/fetch.py index      # 캘린더 3곳 + 이벤트 목록 + papers.json
+venv/bin/python ../scripts/fetch.py index      # 캘린더 3곳 + 이벤트 목록 + papers.json + Downloads 포스터 export(저자 소속)
 venv/bin/python ../scripts/fetch.py details    # 상세 페이지 ~9.6k (재개 가능) → details.jsonl
 venv/bin/python ../scripts/parse.py            # → events.json, papers_main.json, tr_in_*.json
 venv/bin/python ../scripts/translate_codex.py titles|misc|abstracts|pabs|wtitles   # codex CLI → ko_*.json
-venv/bin/python ../scripts/build_site.py ..    # → data/
+venv/bin/python ../scripts/build_site.py ..    # → data/ (+ emb_input.json)
+(cd node && npm i @huggingface/transformers@3.0.2 katex@0.16.11)
+node ../scripts/embed.mjs                      # 의미 검색 임베딩 → emb.bin, 이후 build_site.py 재실행
 ```
 
 ### neurips.cc 수집 시 주의점

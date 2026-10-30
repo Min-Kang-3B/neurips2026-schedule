@@ -29,7 +29,18 @@
       footer: '데이터 출처: neurips.cc (2026 가상 사이트) · 모든 시간은 각 개최지 현지 시각 기준 · 비공식 사이트입니다.',
       search_hint_papers: '논문 제목도 함께 검색됩니다',
       local_time: '현지 시각', oral_pending: 'NeurIPS가 아직 오럴 세션별 논문 배정을 공개하지 않았습니다. 이 개최지의 오럴 논문 전체를 표시합니다.',
-      poster_at: '포스터', all_locs: '전체 개최지'
+      poster_at: '포스터', all_locs: '전체 개최지',
+      view_schedule: '📅 일정', view_search: '🔍 논문 검색',
+      s_title: '논문 검색', s_desc: '세 개최지의 본회의·워크숍 논문 {n}편을 제목·저자·기관으로, 또는 의미로 찾습니다.',
+      s_ph: '주제, 제목, 저자, 기관을 입력하거나 초록을 붙여넣으세요', s_go: '검색',
+      s_mode_kw: '키워드', s_mode_sem: '🧠 의미 검색',
+      s_sem_note: '의미 검색은 영어 문장에서 가장 정확합니다. 모델(약 33MB)은 최초 1회만 내려받고, 입력한 내용은 어디에도 전송되지 않습니다.',
+      s_ko_note: '한글 질의는 키워드 검색(번역 제목 포함)이 더 정확합니다.',
+      s_loading_model: '검색 모델 불러오는 중…', s_loading_index: '검색 색인 불러오는 중…',
+      s_all: '전체', s_main: '본회의', s_ws: '워크숍', s_tag_only: '🎓 오럴·스포트라이트만',
+      s_results: '{n}건', s_top_inst: '이 결과에 가장 많은 기관', s_more: '더 보기', s_examples: '예시',
+      s_match: '유사도', s_results_sem: '의미가 가장 가까운 {n}편', s_none: '결과가 없습니다', s_clear_inst: '기관 필터 해제', s_sem_fail: '의미 검색 모델을 불러오지 못해 키워드 검색으로 전환했습니다.',
+      tz_local: '현지', now_btn: '⏱ 지금 시각으로', tag_all: '전체'
     },
     en: {
       search_ph: 'Search events & papers (title, author, session…)',
@@ -52,7 +63,18 @@
       footer: 'Data source: neurips.cc (2026 virtual site) · All times are local to each venue · Unofficial site.',
       search_hint_papers: 'Paper titles are searched too',
       local_time: 'local time', oral_pending: 'NeurIPS has not yet published which orals go in which oral session. Showing every oral at this venue.',
-      poster_at: 'Poster', all_locs: 'All venues'
+      poster_at: 'Poster', all_locs: 'All venues',
+      view_schedule: '📅 Schedule', view_search: '🔍 Paper search',
+      s_title: 'Paper search', s_desc: 'Find any of the {n} main-track and workshop papers across all three venues by title, author, institution — or by meaning.',
+      s_ph: 'Type a topic, title, author or institution — or paste an abstract', s_go: 'Search',
+      s_mode_kw: 'Keyword', s_mode_sem: '🧠 Semantic',
+      s_sem_note: 'Semantic search works best with English text. The model (~33 MB) downloads once; nothing you type leaves your browser.',
+      s_ko_note: 'For Korean queries, keyword search (includes translated titles) is more accurate.',
+      s_loading_model: 'Loading search model…', s_loading_index: 'Loading search index…',
+      s_all: 'All', s_main: 'Main track', s_ws: 'Workshops', s_tag_only: '🎓 Orals & spotlights only',
+      s_results: '{n} results', s_top_inst: 'Most frequent institutions in these results', s_more: 'Show more', s_examples: 'Try',
+      s_match: 'match', s_results_sem: '{n} closest papers by meaning', s_none: 'No results', s_clear_inst: 'Clear institution filter', s_sem_fail: 'Could not load the semantic model — switched to keyword search.',
+      tz_local: 'Local', now_btn: '⏱ Jump to now', tag_all: 'All'
     }
   };
 
@@ -148,6 +170,8 @@
     lang: params.get('lang') || localStorage.getItem('nips_lang') || 'en',
     loc: params.get('loc') || localStorage.getItem('nips_loc') || 'sydney',
     day: null,
+    view: params.get('view') === 'search' ? 'search' : (localStorage.getItem('nips_view') === 'search' && !params.get('day') && !params.get('open') ? 'search' : 'schedule'),
+    tz: params.get('tz') || localStorage.getItem('nips_tz') || 'local',
     chip: 'all',
     q: '',
     allPapersLoaded: false
@@ -170,7 +194,58 @@
     var main = days.find(function (d) { return d.note && /Main/.test(d.note.en); });
     return (main || days[0] || {}).day;
   }
-  function tzAbbr(locId) { return (LOCS[locId] || {}).abbr || ''; }
+  function tzAbbr(locId) { return state.tz === 'kst' ? 'KST' : ((LOCS[locId] || {}).abbr || ''); }
+  // venue standard offsets during the conference (Dec 2026): AEDT +11, EST -5, CET +1; KST +9
+  var UTC_OFF = { sydney: 11, atlanta: -5, paris: 1 };
+  function fmtT(hhmm, locId) {
+    if (!hhmm || state.tz !== 'kst') return hhmm || '';
+    var p = hhmm.split(':'), mins = (+p[0]) * 60 + (+p[1]) + (9 - (UTC_OFF[locId] || 9)) * 60;
+    var d = Math.floor(mins / 1440); mins = ((mins % 1440) + 1440) % 1440;
+    var out = String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+    return out + (d > 0 ? ' (+' + d + ')' : d < 0 ? ' (' + d + ')' : '');
+  }
+  function fmtRange(e, locId, nextDayMark) {
+    if (!e.start) return '';
+    return fmtT(e.start, locId) + (e.end ? ' – ' + fmtT(e.end, locId) + (state.tz !== 'kst' && e.endNextDay ? nextDayMark : '') : '');
+  }
+  function nowInLoc(locId) {
+    try {
+      var parts = new Intl.DateTimeFormat('en-CA', { timeZone: LOCS[locId].tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      var g = {}; parts.forEach(function (x) { g[x.type] = x.value; });
+      return { date: g.year + '-' + g.month + '-' + g.day, hm: g.hour + ':' + g.minute };
+    } catch (e) { return { date: '', hm: '' }; }
+  }
+
+  // KaTeX (vendored in assets/katex, loaded on first use)
+  var katexReady = null;
+  function ensureKatex() {
+    if (katexReady) return katexReady;
+    katexReady = new Promise(function (res) {
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'assets/katex/katex.min.css'; document.head.appendChild(l);
+      var s1 = document.createElement('script'); s1.src = 'assets/katex/katex.min.js';
+      s1.onload = function () {
+        var s2 = document.createElement('script'); s2.src = 'assets/katex/auto-render.min.js';
+        s2.onload = res; s2.onerror = res; document.head.appendChild(s2);
+      };
+      s1.onerror = res; document.head.appendChild(s1);
+    });
+    return katexReady;
+  }
+  function typeset(el) {
+    if (!el || !/\$|\\\(|\\\[/.test(el.textContent)) return;
+    ensureKatex().then(function () {
+      if (!window.renderMathInElement) return;
+      try {
+        window.renderMathInElement(el, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true }, { left: '\\[', right: '\\]', display: true },
+            { left: '$', right: '$', display: false }, { left: '\\(', right: '\\)', display: false }
+          ],
+          throwOnError: false, strict: 'ignore'
+        });
+      } catch (e) { /* leave raw text */ }
+    });
+  }
   function setLoc(l) {
     state.loc = l; localStorage.setItem('nips_loc', l);
     state.day = localStorage.getItem('nips_day_' + l) || '';
@@ -247,6 +322,14 @@
     document.documentElement.lang = state.lang;
     app.innerHTML = '';
     app.appendChild(renderTopbar());
+    app.appendChild(renderViewNav());
+    if (state.view === 'search') {
+      var sm = h('main', { class: 'timeline search-view', id: 'timeline' });
+      app.appendChild(sm);
+      renderSearchView(sm);
+      app.appendChild(renderFooter());
+      return;
+    }
     app.appendChild(renderLocTabs());
     app.appendChild(renderDayTabs());
     app.appendChild(renderToolbar());
@@ -284,6 +367,10 @@
               installEvt.userChoice.then(function () { installEvt = null; render(); });
             }
           }, ['📲 ' + t('install_app')]),
+          h('div', { class: 'seg seg-tz', title: 'Time zone' }, [
+            h('button', { class: state.tz !== 'kst' ? 'on' : '', onclick: function () { setTz('local'); } }, [t('tz_local')]),
+            h('button', { class: state.tz === 'kst' ? 'on' : '', onclick: function () { setTz('kst'); } }, ['KST'])
+          ]),
           h('div', { class: 'seg' }, [
             h('button', { class: state.lang === 'ko' ? 'on' : '', onclick: function () { setLang('ko'); } }, ['한국어']),
             h('button', { class: state.lang === 'en' ? 'on' : '', onclick: function () { setLang('en'); } }, ['EN'])
@@ -294,6 +381,17 @@
     ]);
   }
   function setLang(l) { state.lang = l; localStorage.setItem('nips_lang', l); render(); }
+  function setTz(z) { state.tz = z; localStorage.setItem('nips_tz', z); render(); }
+  function setView(v) {
+    state.view = v; localStorage.setItem('nips_view', v);
+    render(); window.scrollTo(0, 0);
+  }
+  function renderViewNav() {
+    return h('div', { class: 'viewnav-wrap' }, [h('nav', { class: 'viewnav' }, [
+      h('button', { class: state.view === 'schedule' ? 'on' : '', onclick: function () { if (state.view !== 'schedule') setView('schedule'); } }, [t('view_schedule')]),
+      h('button', { class: state.view === 'search' ? 'on' : '', onclick: function () { if (state.view !== 'search') setView('search'); } }, [t('view_search')])
+    ])]);
+  }
 
   function renderLocTabs() {
     return h('div', { class: 'loctabs-wrap' }, [
@@ -368,7 +466,16 @@
     if (!day) return;
     if (state.chip === 'wish') return renderWishDay(main, day);
     var note = loc(day.note);
-    main.appendChild(h('div', { class: 'date-heading' }, [loc(day.dateFull) + (note ? ' — ' + note : '') + ' · ' + tzAbbr(day.loc)]));
+    var now = nowInLoc(day.loc);
+    var isToday = now.date === day.date;
+    main.appendChild(h('div', { class: 'date-heading' }, [
+      loc(day.dateFull) + (note ? ' — ' + note : '') + ' · ' + tzAbbr(day.loc),
+      isToday ? h('button', { class: 'now-btn', onclick: function () {
+        var target = null;
+        main.querySelectorAll('.tgroup').forEach(function (g) { if (g.dataset.start <= now.hm) target = g; });
+        (target || main.querySelector('.tgroup')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } }, [t('now_btn')]) : null
+    ]));
 
     var evs = day.events.filter(eventMatchesChip);
     if (!evs.length) { main.appendChild(h('div', { class: 'empty' }, [t('no_events')])); return; }
@@ -380,9 +487,10 @@
       (groups[k] = groups[k] || []).push(e);
     });
     Object.keys(groups).sort().forEach(function (k) {
-      var lbl = h('div', { class: 'tlabel' }, [k]);
+      var lbl = h('div', { class: 'tlabel' }, [fmtT(k, day.loc)]);
       var cards = h('div', { class: 'tcards' }, groups[k].map(function (e) { return renderCard(e, day); }));
-      main.appendChild(h('section', { class: 'tgroup' }, [lbl, cards]));
+      var past = isToday && groups[k].every(function (e) { return e.end && !e.endNextDay && e.end < now.hm; });
+      main.appendChild(h('section', { class: 'tgroup' + (past ? ' past' : ''), 'data-start': k }, [lbl, cards]));
     });
   }
 
@@ -390,7 +498,7 @@
     var g = TYPE_GROUP[e.type] || 'ops';
     var color = GROUP_COLOR[g];
     var compact = (g === 'ops');
-    var times = e.start ? (e.start + (e.end ? ' – ' + e.end + (e.endNextDay ? ' +1' : '') : '')) : '';
+    var times = fmtRange(e, day.loc, ' +1');
     var pinned = !!wish.events[e.id];
     var card;
     function onOpen() {
@@ -506,7 +614,7 @@
         }
       });
       main.appendChild(h('section', { class: 'tgroup' }, [
-        h('div', { class: 'tlabel' }, [k]), cards
+        h('div', { class: 'tlabel' }, [fmtT(k, day.loc)]), cards
       ]));
     });
   }
@@ -586,7 +694,7 @@
     document.body.style.overflow = 'hidden';
 
     var g = TYPE_GROUP[e.type] || 'ops';
-    var times = (e.start || '') + (e.end ? ' – ' + e.end + (e.endNextDay ? ' (+1)' : '') : '');
+    var times = fmtRange(e, day.loc, ' (+1)');
     var head = h('div', { class: 'modal-head' }, [
       h('div', { class: 'heads' }, [
         h('span', { class: 'badge', style: '--tc:' + GROUP_COLOR[g] }, [loc(e.typeName)]),
@@ -625,11 +733,13 @@
             if (shown && !origBox) {
               origBox = h('div', { class: 'abs', style: 'margin-top:8px', html: det.abs.en });
               sec.appendChild(origBox);
+              typeset(origBox);
             } else if (origBox) { origBox.style.display = shown ? '' : 'none'; }
           }
         }, [t('show_original')]));
       }
       body.appendChild(sec);
+      typeset(sec);
     }
 
     // workshop program (schedule + invited speakers) from the workshop's own site
@@ -763,17 +873,36 @@
     var shown = 0;
     var CHUNK = 60;
 
+    var curQ = '', curTag = '';
+    function applyFilter() {
+      filtered = papers.filter(function (p) {
+        if (curTag && p.tag !== curTag) return false;
+        if (!curQ) return true;
+        var tagx = p.tag ? (p.tag + (p.tag === 'Oral' ? ' 구두' : ' 스포트라이트')) : '';
+        return ((p.en || '') + ' ' + (p.ko || '') + ' ' + (p.authors || '') + ' ' + (p.inst || '') + ' ' + (p.pos || '') + ' ' + tagx).toLowerCase().indexOf(curQ) >= 0;
+      });
+      reset();
+    }
     var finput = h('input', {
       type: 'search', placeholder: t('filter_papers'),
-      oninput: debounce(function (ev) {
-        var q = ev.target.value.trim().toLowerCase();
-        filtered = !q ? papers : papers.filter(function (p) {
-          var tagx = p.tag ? (p.tag + (p.tag === 'Oral' ? ' 구두' : ' 스포트라이트')) : '';
-          return ((p.en || '') + ' ' + (p.ko || '') + ' ' + (p.authors || '') + ' ' + (p.pos || '') + ' ' + tagx).toLowerCase().indexOf(q) >= 0;
-        });
-        reset();
-      }, 200)
+      oninput: debounce(function (ev) { curQ = ev.target.value.trim().toLowerCase(); applyFilter(); }, 200)
     });
+    var nOral = papers.filter(function (p) { return p.tag === 'Oral'; }).length;
+    var nSpot = papers.filter(function (p) { return p.tag === 'Spotlight'; }).length;
+    var tagChips = null;
+    if (nOral || nSpot) {
+      var defs = [['', t('tag_all') + ' ' + papers.length]];
+      if (nOral) defs.push(['Oral', '🎓 ' + (state.lang === 'ko' ? '오럴' : 'Oral') + ' ' + nOral]);
+      if (nSpot) defs.push(['Spotlight', '✨ ' + (state.lang === 'ko' ? '스포트라이트' : 'Spotlight') + ' ' + nSpot]);
+      tagChips = h('div', { class: 'chips tagchips' }, defs.map(function (d) {
+        var b = h('button', { class: 'chip' + (d[0] === curTag ? ' on' : ''), onclick: function () {
+          curTag = d[0];
+          tagChips.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('on'); });
+          b.classList.add('on'); applyFilter();
+        } }, [d[1]]);
+        return b;
+      }));
+    }
 
     function updateCount() {
       count.textContent = Math.min(shown, filtered.length) + ' ' + t('shown') + t('of') + filtered.length;
@@ -800,6 +929,7 @@
     }
 
     wrap.appendChild(h('div', { class: 'paperfilter' }, [finput]));
+    if (tagChips) wrap.appendChild(tagChips);
     wrap.appendChild(count);
     wrap.appendChild(listEl);
     renderChunk();
@@ -824,10 +954,20 @@
     if (p.time) tags.push(h('span', { class: 'ptag oraltime' }, [p.time]));
     if (p.psess) tags.push(h('span', { class: 'ptag' }, ['📌 ' + p.psess.replace(/^(Sydney|Atlanta|Paris) /, '')]));
     if (p.pos) tags.push(h('span', { class: 'ptag' }, [p.pos]));
+    if (opts.score != null) tags.push(h('span', { class: 'ptag match' }, [t('s_match') + ' ' + opts.score]));
     var btn = h('button', {
       title: t('wish_hint'),
       onclick: function () {
         if (btn._lpFired) { btn._lpFired = false; return; }
+        if (!bodyEl && !p.abs && opts.ref && !p._loaded) {
+          p._loaded = true;
+          loadPapers(opts.ref).then(function (list) {
+            var f = (list || []).find(function (x) { return x.id === p.id; });
+            if (f) ['abs', 'absKo', 'link', 'psess', 'pos'].forEach(function (k) { if (f[k] && !p[k]) p[k] = f[k]; });
+            btn.click();
+          });
+          return;
+        }
         expanded = !expanded;
         if (expanded && !bodyEl) {
           var useKoAbs = state.lang === 'ko' && p.absKo;
@@ -851,17 +991,20 @@
                 if (shownOrig && !origEl) {
                   origEl = h('div', { class: 'abs', style: 'margin-top:8px', html: p.abs });
                   ev2.target.insertAdjacentElement('afterend', origEl);
+                  typeset(origEl);
                 } else if (origEl) origEl.style.display = shownOrig ? '' : 'none';
               }
             }, [t('show_original')]), bodyEl.querySelector('.plinks'));
           }
           item.appendChild(bodyEl);
+          typeset(bodyEl);
         } else if (bodyEl) bodyEl.style.display = expanded ? '' : 'none';
       }
     }, [
       tags.length ? h('div', { class: 'ptags' }, tags) : null,
       h('div', { class: 'pt' }, [title]),
       p.authors ? h('div', { class: 'pa' }, [p.authors]) : null,
+      p.inst ? h('div', { class: 'pi' }, ['🏛 ' + p.inst]) : null,
       opts.ctx ? h('div', { class: 'ctx' }, [opts.ctx]) : null
     ]);
     if (p.id) {
@@ -877,6 +1020,198 @@
     }
     item.appendChild(btn);
     return item;
+  }
+
+  // ---------------- paper search tab ----------------
+  var SX = { q: params.get('view') === 'search' ? (params.get('q') || '') : '', mode: localStorage.getItem('nips_smode') || 'kw',
+             loc: 'all', kind: 'all', tagOnly: false, inst: '', limit: 50, results: null, msg: '' };
+  if (params.get('mode') === 'sem') SX.mode = 'sem';
+  var IDX = null, IDX_HAY = null, EMB = null, EXTRACTOR = null;
+  function loadIndex() {
+    if (IDX) return Promise.resolve(IDX);
+    return new Promise(function (res) {
+      var sc = document.createElement('script');
+      sc.src = 'data/search/index.js';
+      sc.onload = function () {
+        IDX = window.NIPS_INDEX || { rows: [] };
+        IDX_HAY = IDX.rows.map(function (r) {
+          return { t: (r[2] + ' ' + r[3]).toLowerCase(), a: (r[4] || '').toLowerCase(), i: (r[5] || '').toLowerCase() };
+        });
+        res(IDX);
+      };
+      sc.onerror = function () { IDX = { rows: [] }; IDX_HAY = []; res(IDX); };
+      document.head.appendChild(sc);
+    });
+  }
+  function ensureSemantic(onProgress) {
+    var tasks = [];
+    if (!EMB) tasks.push(fetch(IDX.emb.file).then(function (r) { return r.arrayBuffer(); }).then(function (b) { EMB = new Int8Array(b); }));
+    if (!EXTRACTOR) {
+      tasks.push(import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2').then(function (m) {
+        return m.pipeline('feature-extraction', IDX.emb.model, { dtype: 'q8', progress_callback: onProgress });
+      }).then(function (ex) { EXTRACTOR = ex; }));
+    }
+    return Promise.all(tasks);
+  }
+  function rowLoc(r) { var hit = EV_INDEX[r[1]]; return hit ? hit.day.loc : ''; }
+  function passFilters(r) {
+    if (SX.loc !== 'all' && rowLoc(r) !== SX.loc) return false;
+    if (SX.kind === 'main' && r[7]) return false;
+    if (SX.kind === 'ws' && !r[7]) return false;
+    if (SX.tagOnly && !r[6]) return false;
+    if (SX.inst && (r[5] || '').split('; ').indexOf(SX.inst) < 0) return false;
+    return true;
+  }
+  function keywordSearch(q) {
+    var toks = q.toLowerCase().split(/\s+/).filter(Boolean);
+    var out = [];
+    IDX.rows.forEach(function (r, i) {
+      var hy = IDX_HAY[i], score = 0;
+      for (var k = 0; k < toks.length; k++) {
+        var tk = toks[k];
+        if (hy.t.indexOf(tk) >= 0) score += 3;
+        else if (hy.i.indexOf(tk) >= 0) score += 2;
+        else if (hy.a.indexOf(tk) >= 0) score += 1;
+        else return;
+      }
+      out.push({ r: r, s: score + (r[6] ? 0.3 : 0) });
+    });
+    out.sort(function (a, b) { return b.s - a.s; });
+    return out;
+  }
+  function semanticSearch(q) {
+    return EXTRACTOR('Represent this sentence for searching relevant passages: ' + q, { pooling: 'cls', normalize: true }).then(function (o) {
+      var qv = o.data, dim = IDX.emb.dim, out = [];
+      IDX.rows.forEach(function (r) {
+        var row = r[8];
+        if (row < 0) return;
+        var base = row * dim, dot = 0;
+        for (var k = 0; k < dim; k++) dot += EMB[base + k] * qv[k];
+        out.push({ r: r, s: dot / 127 });
+      });
+      out.sort(function (a, b) { return b.s - a.s; });
+      return out.slice(0, 400);
+    });
+  }
+  function runSearch(view) {
+    var q = SX.q.trim();
+    try { history.replaceState(null, '', '?view=search' + (q ? '&q=' + encodeURIComponent(q) : '') + (SX.mode === 'sem' ? '&mode=sem' : '')); } catch (e) { /* file:// */ }
+    if (!q) { SX.results = null; drawResults(view); return; }
+    SX.limit = 50; SX.inst = '';
+    var status = view.querySelector('.s-status');
+    status.textContent = t('s_loading_index');
+    loadIndex().then(function () {
+      if (SX.mode === 'sem' && IDX.emb) {
+        status.textContent = t('s_loading_model');
+        return ensureSemantic(function (pr) {
+          if (pr && pr.status === 'progress' && pr.total) status.textContent = t('s_loading_model') + ' ' + Math.round(pr.loaded / pr.total * 100) + '%';
+        }).then(function () { return semanticSearch(q); }).catch(function () {
+          SX.mode = 'kw'; SX.msg = t('s_sem_fail'); return keywordSearch(q);
+        });
+      }
+      return keywordSearch(q);
+    }).then(function (res) {
+      status.textContent = '';
+      SX.results = res;
+      drawResults(view);
+    });
+  }
+  function hitCtx(r) {
+    var hit = EV_INDEX[r[1]];
+    if (!hit) return '';
+    var e = hit.ev, d = hit.day;
+    return loc(LOCS[d.loc].name) + ' · ' + loc(d.label) + ' · ' + loc(e.title) +
+      (e.start ? ' · ' + fmtRange(e, d.loc, ' +1') + ' ' + tzAbbr(d.loc) : '') + (e.room ? ' · ' + e.room : '');
+  }
+  function drawResults(view) {
+    var box = view.querySelector('.s-results');
+    box.innerHTML = '';
+    if (SX.msg) { box.appendChild(h('div', { class: 'prog-note' }, [SX.msg])); SX.msg = ''; }
+    if (!SX.results) return;
+    var list = SX.results.filter(function (x) { return passFilters(x.r); });
+    // institution facet over the top results (borrowed idea: who publishes on this topic)
+    var top = list.slice(0, 200), cnt = {};
+    top.forEach(function (x) { (x.r[5] ? x.r[5].split('; ') : []).forEach(function (n) { cnt[n] = (cnt[n] || 0) + 1; }); });
+    var insts = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 10);
+    box.appendChild(h('div', { class: 'results-note' }, ['“' + SX.q.slice(0, 80) + '” — ' + t(SX.mode === 'sem' ? 's_results_sem' : 's_results').replace('{n}', list.length.toLocaleString())]));
+    if (SX.inst) {
+      box.appendChild(h('button', { class: 'chip on', onclick: function () { SX.inst = ''; drawResults(view); } }, ['🏛 ' + SX.inst + ' ✕']));
+    } else if (insts.length >= 3) {
+      var maxc = cnt[insts[0]];
+      box.appendChild(h('div', { class: 'instbox' }, [
+        h('div', { class: 'prog-sub' }, [t('s_top_inst') + (SX.mode === 'sem' ? ' (top ' + top.length + ')' : '')]),
+        h('div', { class: 'instbars' }, insts.map(function (n) {
+          return h('button', { class: 'instbar', onclick: function () { SX.inst = n; drawResults(view); } }, [
+            h('span', { class: 'ib-name' }, [n]),
+            h('span', { class: 'ib-bar' }, [h('i', { style: 'width:' + Math.max(6, Math.round(cnt[n] / maxc * 100)) + '%' })]),
+            h('span', { class: 'ib-n' }, [String(cnt[n])])
+          ]);
+        }))
+      ]));
+    }
+    if (!list.length) { box.appendChild(h('div', { class: 'empty' }, [t('s_none')])); return; }
+    var wrap = h('div');
+    list.slice(0, SX.limit).forEach(function (x) {
+      var r = x.r, hit = EV_INDEX[r[1]];
+      var p = { id: r[0], en: r[2], ko: r[3], authors: r[4], inst: r[5], tag: r[6] };
+      wrap.appendChild(renderPaperItem(p, {
+        sid: r[1], ref: hit ? papersRef(hit.ev) : null, ctx: hitCtx(r),
+        score: SX.mode === 'sem' ? Math.round(x.s * 100) : null
+      }));
+    });
+    box.appendChild(wrap);
+    if (list.length > SX.limit) {
+      box.appendChild(h('button', { class: 'load-all', onclick: function () { SX.limit += 50; drawResults(view); } },
+        [t('s_more') + ' (' + Math.min(SX.limit, list.length) + ' / ' + list.length + ')']));
+    }
+  }
+  function renderSearchView(main) {
+    var nAll = SCHED.days.reduce(function (a, d) { return a; }, 0);
+    var view = h('div', { class: 'sv' });
+    var ta = h('textarea', { class: 's-input', rows: '2', placeholder: t('s_ph') });
+    ta.value = SX.q;
+    function go() { SX.q = ta.value; runSearch(view); }
+    ta.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); go(); } });
+    function segBtn(cur, val, label, set) {
+      return h('button', { class: cur === val ? 'on' : '', onclick: function () { set(val); } }, [label]);
+    }
+    var modeSeg = h('div', { class: 'seg' }, [
+      segBtn(SX.mode, 'kw', t('s_mode_kw'), function (v) { SX.mode = v; localStorage.setItem('nips_smode', v); rerender(); }),
+      segBtn(SX.mode, 'sem', t('s_mode_sem'), function (v) { SX.mode = v; localStorage.setItem('nips_smode', v); rerender(); })
+    ]);
+    function rerender() { main.innerHTML = ''; renderSearchView(main); }
+    function filterChip(label, on, fn) { return h('button', { class: 'chip' + (on ? ' on' : ''), onclick: function () { fn(); rerenderKeep(); } }, [label]); }
+    function rerenderKeep() { SX.q = ta.value; var r = SX.results; main.innerHTML = ''; renderSearchView(main); SX.results = r; drawResults(main.querySelector('.sv')); }
+    var locChips = [filterChip(t('s_all'), SX.loc === 'all', function () { SX.loc = 'all'; })].concat((SCHED.locs || []).map(function (l) {
+      return filterChip(loc(l.name), SX.loc === l.id, function () { SX.loc = l.id; });
+    }));
+    var kindChips = [
+      filterChip(t('s_main'), SX.kind === 'main', function () { SX.kind = SX.kind === 'main' ? 'all' : 'main'; }),
+      filterChip(t('s_ws'), SX.kind === 'ws', function () { SX.kind = SX.kind === 'ws' ? 'all' : 'ws'; }),
+      filterChip(t('s_tag_only'), SX.tagOnly, function () { SX.tagOnly = !SX.tagOnly; })
+    ];
+    var examples = SX.mode === 'sem'
+      ? ['RL for LLM reasoning', 'diffusion language models', 'protein design', 'LLM agent evaluation', 'mechanistic interpretability', 'genomics foundation models']
+      : (state.lang === 'ko' ? ['강화학습', '확산 모델', '에이전트', 'KAIST', 'Seoul National University', '유전체'] : ['reinforcement learning', 'diffusion', 'agents', 'KAIST', 'Seoul National University', 'genomics']);
+    var hasHangul = /[가-힣]/.test(SX.q);
+    view.appendChild(h('div', { class: 's-head' }, [
+      h('h2', null, [t('s_title')]),
+      h('p', { class: 's-desc' }, [t('s_desc').replace('{n}', totalPapers())])
+    ]));
+    view.appendChild(h('div', { class: 's-box' }, [ta, h('button', { class: 's-go', onclick: go }, [t('s_go')])]));
+    view.appendChild(h('div', { class: 's-row' }, [modeSeg,
+      h('div', { class: 'chips' }, [h('span', { class: 's-lbl' }, [t('s_examples')])].concat(examples.map(function (x) {
+        return h('button', { class: 'chip', onclick: function () { ta.value = x; go(); } }, [x]);
+      })))
+    ]));
+    if (SX.mode === 'sem') view.appendChild(h('div', { class: 'prog-note' }, [t('s_sem_note') + (hasHangul ? ' ' + t('s_ko_note') : '')]));
+    view.appendChild(h('div', { class: 'chips s-filters' }, locChips.concat([h('span', { class: 's-sep' })]).concat(kindChips)));
+    view.appendChild(h('div', { class: 's-status' }));
+    view.appendChild(h('div', { class: 's-results' }));
+    main.appendChild(view);
+    if (SX.q && !SX.results) runSearch(view);
+    else if (SX.results) drawResults(view);
+    setTimeout(function () { if (!SX.q) ta.focus(); }, 0);
   }
 
   function renderFooter() {

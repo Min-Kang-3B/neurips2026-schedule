@@ -63,6 +63,19 @@ def index():
     json.loads(js)  # validate
     open(os.path.join(RAW, 'papers.json'), 'w').write(js)
     print('papers.json', len(json.loads(js)['results']))
+    export_posters()
+
+
+def export_posters():
+    """Downloads page export (JSON): every poster with 'Name (Affiliation)' author strings."""
+    url = f'{BASE}/Downloads/{YEAR}'
+    page = S.get(url, timeout=60).text
+    tok = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page).group(1)
+    r = S.post(url, data={'csrfmiddlewaretoken': tok, 'format': '5', 'posters': 'on',
+                          'submitaction': 'Download Data'}, headers={'Referer': url}, timeout=600)
+    data = r.json()
+    json.dump(data, open(os.path.join(RAW, 'dl_posters.json'), 'w'), ensure_ascii=False)
+    print('export posters', len(data))
 
 
 # ---------------- detail URLs ----------------
@@ -199,6 +212,8 @@ def details(workers=8):
 
 if __name__ == '__main__':
     step = sys.argv[1] if len(sys.argv) > 1 else 'all'
+    if step == 'export':
+        export_posters()
     if step in ('index', 'all'):
         index()
     if step in ('details', 'all'):

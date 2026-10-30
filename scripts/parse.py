@@ -111,6 +111,17 @@ for line in open('details.jsonl'):
 det_by_id = {r['id']: r for r in details.values()}
 papers = json.load(open('raw/papers.json'))['results']
 
+# Downloads export (posters): authors with affiliations for every poster
+import sys  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from institutions import paper_authors, paper_institutions  # noqa: E402
+export = {}
+if os.path.exists('raw/dl_posters.json'):
+    for r in json.load(open('raw/dl_posters.json')):
+        eid = (r.get('virtualsite_url') or '').rstrip('/').split('/')[-1]
+        if eid:
+            export[eid] = r
+
 TYPE_FROM_CLASS = ['expo-talk-panel', 'expo-demonstration', 'expo-workshop', 'break', 'social',
                    'invited-talk', 'talk', 'reception', 'affinity-event', 'tutorial', 'town-hall',
                    'test-of-time', 'remarks', 'award', 'creative-ai', 'reproducibility-track',
@@ -242,6 +253,7 @@ for d in details.values():
                 oral_session_members[r['session'].strip()].append(r['id'])
 
 papers_main = {}
+oral_of_poster_rev = {o: p for p, o in oral_of_poster.items()}   # oral id -> its poster id
 
 
 def paper_rec(pid, title=None):
@@ -268,6 +280,13 @@ def paper_rec(pid, title=None):
                 rec['link'] = l['url']
     if d.get('abstract_html'):
         rec['abs'] = d['abstract_html']
+    ex = export.get(pid) or export.get(oral_of_poster_rev.get(pid, ''))
+    if ex:
+        inst = paper_institutions(ex.get('speakers/authors'))
+        if inst:
+            rec['inst'] = inst
+        if not rec.get('authors'):
+            rec['authors'] = paper_authors(ex.get('speakers/authors'))
     if pid in poster_sess_of_oral:
         rec['psess'] = poster_sess_of_oral[pid]
     return rec
