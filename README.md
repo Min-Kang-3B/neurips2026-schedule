@@ -26,6 +26,7 @@ python3 -m http.server 8643
 - **위시리스트** — 카드/논문을 길게 눌러 핀, ⭐ 필터로 하루 동선 보기
 - **🗓 타임테이블** — 위시리스트를 일~토 주간 격자로 한눈에(겹치는 일정은 나란히, 핀한 논문은 세션 블록 안에 표시, 현지/KST 전환 반영). `?view=week`
 - **PWA** — 설치 + 오프라인 전체 저장
+- **🔗 AI 연결·동기화** — 동기화 코드로 위시리스트를 기기 간 동기화하고, ChatGPT·Claude에 MCP 서버(`mcp/`, Cloudflare Workers)를 연결해 대화로 논문 검색·위시리스트 관리
 - **딥링크** — `?loc=paris&day=paris-2026-12-10&lang=en&open=<eventId>&q=<검색어>&theme=dark`
 
 ## 데이터 파이프라인 (`scripts/`)

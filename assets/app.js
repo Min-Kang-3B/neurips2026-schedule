@@ -45,6 +45,13 @@
       wk_desc: '핀한 일정과 논문을 요일별로 한눈에 봅니다. 일정 탭에서 카드나 논문을 길게 눌러 추가하세요.',
       wk_empty: '아직 이 개최지에 핀한 일정이 없습니다', wk_untimed: '시간 미정', wk_go: '📅 일정에서 고르기',
       wk_papers: '논문 {n}편', wk_dows: ['일', '월', '화', '수', '목', '금', '토'],
+      sync_btn: '🔗 AI 연결·동기화', sync_title: 'ChatGPT·Claude 연결 + 기기 간 동기화',
+      sync_desc: '동기화 코드를 만들면 위시리스트가 서버에 저장되어 다른 기기와 맞춰지고, 아래 MCP 주소를 ChatGPT나 Claude에 연결해 대화로 논문을 찾고 위시리스트를 관리할 수 있습니다.',
+      sync_new: '새 동기화 코드 만들기', sync_have: '다른 기기의 코드가 있나요?', sync_code_ph: '동기화 코드 붙여넣기', sync_link: '연결',
+      sync_code: '동기화 코드', sync_mcp: 'MCP 서버 주소', sync_copy: '복사', sync_copied: '복사됨 ✓',
+      sync_how: 'ChatGPT: 설정 → 앱·커넥터 → 고급에서 개발자 모드 켜기 → 커넥터 만들기에 이 주소 입력(인증 없음). Claude: 설정 → 커넥터 → 사용자 지정 커넥터 추가에 이 주소 입력.',
+      sync_secret: '이 코드와 주소를 아는 사람은 위시리스트를 보고 고칠 수 있으니 공유하지 마세요.',
+      sync_last: '마지막 동기화', sync_never: '아직 안 됨', sync_unlink: '이 기기에서 연결 해제', sync_err: '동기화 실패 — 다음에 다시 시도합니다', sync_bad: '코드 형식이 올바르지 않습니다',
       locs_btn: '⚙ 개최지', locs_title: '표시할 개최지', locs_note: '켜 둔 개최지만 일정·검색·타임테이블에 나옵니다.', locs_always: '항상 표시'
     },
     en: {
@@ -84,6 +91,13 @@
       wk_desc: 'Your pinned events and papers, laid out by day. Long-press any card or paper in Schedule to add it.',
       wk_empty: 'Nothing pinned at this venue yet', wk_untimed: 'No time set', wk_go: '📅 Pick from Schedule',
       wk_papers: '{n} papers', wk_dows: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      sync_btn: '🔗 AI & sync', sync_title: 'Connect ChatGPT / Claude + sync devices',
+      sync_desc: 'Create a sync code to keep your wishlist on the server across devices, and connect the MCP address below to ChatGPT or Claude to search papers and manage your wishlist by chat.',
+      sync_new: 'Create a sync code', sync_have: 'Have a code from another device?', sync_code_ph: 'Paste sync code', sync_link: 'Link',
+      sync_code: 'Sync code', sync_mcp: 'MCP server URL', sync_copy: 'Copy', sync_copied: 'Copied ✓',
+      sync_how: 'ChatGPT: Settings → Apps & Connectors → Advanced → Developer mode → Create connector with this URL (no auth). Claude: Settings → Connectors → Add custom connector with this URL.',
+      sync_secret: 'Anyone with this code or URL can read and edit your wishlist — keep it private.',
+      sync_last: 'Last synced', sync_never: 'not yet', sync_unlink: 'Unlink this device', sync_err: 'Sync failed — will retry', sync_bad: 'That code doesn’t look right',
       locs_btn: '⚙ Venues', locs_title: 'Venues to show', locs_note: 'Only enabled venues appear in Schedule, Search and Timetable.', locs_always: 'always on'
     }
   };
@@ -124,7 +138,60 @@
   try { wish = JSON.parse(localStorage.getItem('nips_wish')) || wish; } catch (e) { /* fresh */ }
   wish.events = wish.events || {};
   wish.papers = wish.papers || {};
-  function saveWish() { localStorage.setItem('nips_wish', JSON.stringify(wish)); }
+  function saveWish() { localStorage.setItem('nips_wish', JSON.stringify(wish)); schedulePush(); }
+
+  // ---------------- wishlist sync (MCP server's /api/wish/<code>) ----------------
+  // the server copy wins on pull; local edits are pushed right away (dirty flag survives offline)
+  var SYNC_API = localStorage.getItem('nips_sync_api') || 'https://neurips2026-mcp.REPLACE.workers.dev';
+  if (/REPLACE/.test(SYNC_API)) SYNC_API = '';
+  var CODE_RE = /^[a-z0-9]{20,40}$/;
+  var sync = { code: localStorage.getItem('nips_sync_code') || '', last: +localStorage.getItem('nips_sync_last') || 0, err: false };
+  var pushTimer = null;
+  function wishDoc() { return JSON.stringify({ events: wish.events, papers: wish.papers }); }
+  function syncUrl() { return SYNC_API + '/api/wish/' + sync.code; }
+  function markSynced() { sync.last = Date.now(); sync.err = false; localStorage.setItem('nips_sync_last', String(sync.last)); }
+  function schedulePush() {
+    if (!SYNC_API || !sync.code) return;
+    localStorage.setItem('nips_sync_dirty', '1');
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushWish, 400);
+  }
+  function pushWish() {
+    return fetch(syncUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: wishDoc() })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); localStorage.removeItem('nips_sync_dirty'); markSynced(); })
+      .catch(function () { sync.err = true; });
+  }
+  function pullWish() {
+    if (!SYNC_API || !sync.code) return Promise.resolve();
+    if (localStorage.getItem('nips_sync_dirty')) return pushWish();
+    return fetch(syncUrl(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        markSynced();
+        var next = { events: d.events || {}, papers: d.papers || {} };
+        if (JSON.stringify(next) === wishDoc()) return;
+        wish = next;
+        localStorage.setItem('nips_wish', wishDoc());
+        if (!document.querySelector('.overlay')) render();
+      })
+      .catch(function () { sync.err = true; });
+  }
+  function linkSync(code) {
+    sync.code = code; localStorage.setItem('nips_sync_code', code);
+    return fetch(syncUrl(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; })
+      .then(function (d) {
+        // first link on this device: union of server and local copies
+        Object.keys(d.events || {}).forEach(function (k) { wish.events[k] = d.events[k]; });
+        Object.keys(d.papers || {}).forEach(function (k) { if (!wish.papers[k]) wish.papers[k] = d.papers[k]; });
+        localStorage.setItem('nips_wish', wishDoc());
+        return pushWish();
+      });
+  }
+  function newSyncCode() {
+    var a = new Uint8Array(24), abc = 'abcdefghijkmnpqrstuvwxyz23456789', out = '';
+    crypto.getRandomValues(a);
+    for (var i = 0; i < a.length; i++) out += abc[a[i] % abc.length];
+    return out;
+  }
   function wishCount() { return Object.keys(wish.events).length + Object.keys(wish.papers).length; }
   function toggleEventPin(e) {
     if (wish.events[e.id]) delete wish.events[e.id];
@@ -199,6 +266,7 @@
     allPapersLoaded: false
   };
   if (['ko', 'en'].indexOf(state.lang) < 0) state.lang = 'ko';
+  if (params.get('loc') && LOCS[params.get('loc')] && !locOn(params.get('loc'))) locsOn[params.get('loc')] = 1;   // explicit deep link: show it this visit
   if (!LOCS[state.loc] || !locOn(state.loc)) state.loc = MAIN_LOC;
   if (params.get('day') && !SCHED.days.some(function (d) { return d.day === params.get('day') && d.loc === state.loc; })) params.delete('day');
   state.day = params.get('day') || localStorage.getItem('nips_day_' + state.loc) || '';
@@ -741,7 +809,8 @@
     main.appendChild(h('div', { class: 'wk-head' }, [
       h('h2', null, [t('wk_title')]),
       h('p', null, [t('wk_desc')]),
-      h('div', { class: 'wk-meta' }, [loc(LOCS[locId].name) + ' · ' + tzAbbr(locId)])
+      h('div', { class: 'wk-meta' }, [loc(LOCS[locId].name) + ' · ' + tzAbbr(locId)]),
+      SYNC_API ? renderSyncBox() : null
     ]));
 
     var lo = 8 * 60, hi = 18 * 60;
@@ -809,6 +878,50 @@
       main.appendChild(h('div', { class: 'tcards' }, untimed.map(function (it) { return renderCard(it.ev, it.day); })));
     }
   }
+
+  function renderSyncBox() {
+    var box = h('details', { class: 'syncbox' + (sync.code ? ' linked' : '') });
+    if (sync.code && sync.err) box.setAttribute('open', '');
+    box.appendChild(h('summary', null, [t('sync_btn'), sync.code ? h('span', { class: 'sync-dot' + (sync.err ? ' err' : '') }) : null]));
+    var body = h('div', { class: 'sync-body' }, [h('b', null, [t('sync_title')]), h('p', null, [t('sync_desc')])]);
+    function copyRow(label, value) {
+      var btn = h('button', { class: 'sync-copy', onclick: function () {
+        (navigator.clipboard ? navigator.clipboard.writeText(value) : Promise.reject()).then(function () {
+          btn.textContent = t('sync_copied'); setTimeout(function () { btn.textContent = t('sync_copy'); }, 1500);
+        }).catch(function () { window.prompt(label, value); });
+      } }, [t('sync_copy')]);
+      return h('div', { class: 'sync-row' }, [h('span', { class: 'sync-lbl' }, [label]), h('code', null, [value]), btn]);
+    }
+    if (sync.code) {
+      body.appendChild(copyRow(t('sync_mcp'), SYNC_API + '/mcp/' + sync.code));
+      body.appendChild(h('p', { class: 'sync-how' }, [t('sync_how')]));
+      body.appendChild(copyRow(t('sync_code'), sync.code));
+      body.appendChild(h('p', { class: 'sync-warn' }, ['⚠ ' + t('sync_secret')]));
+      body.appendChild(h('div', { class: 'sync-foot' }, [
+        h('span', null, [sync.err ? t('sync_err') : t('sync_last') + ': ' + (sync.last ? new Date(sync.last).toLocaleString(state.lang === 'ko' ? 'ko-KR' : 'en-US') : t('sync_never'))]),
+        h('button', { class: 'sync-unlink', onclick: function () {
+          sync.code = ''; localStorage.removeItem('nips_sync_code'); localStorage.removeItem('nips_sync_dirty'); render();
+        } }, [t('sync_unlink')])
+      ]));
+    } else {
+      var input = h('input', { type: 'text', placeholder: t('sync_code_ph'), autocomplete: 'off', spellcheck: 'false' });
+      var msg = h('span', { class: 'sync-msg' });
+      body.appendChild(h('button', { class: 'now-btn', onclick: function () {
+        linkSync(newSyncCode()).then(function () { render(); openSyncBox(); });
+      } }, [t('sync_new')]));
+      body.appendChild(h('div', { class: 'sync-have' }, [
+        h('span', null, [t('sync_have')]), input,
+        h('button', { class: 'sync-copy', onclick: function () {
+          var c = input.value.trim().toLowerCase();
+          if (!CODE_RE.test(c)) { msg.textContent = t('sync_bad'); return; }
+          linkSync(c).then(function () { render(); openSyncBox(); });
+        } }, [t('sync_link')]), msg
+      ]));
+    }
+    box.appendChild(body);
+    return box;
+  }
+  function openSyncBox() { var b = document.querySelector('.syncbox'); if (b) b.setAttribute('open', ''); }
 
   function renderWeekBlock(b, lo, PX) {
     var e = b.it.ev, g = TYPE_GROUP[e.type] || 'ops';
@@ -1485,6 +1598,9 @@
     document.documentElement.setAttribute('data-theme', 'dark');
   }
   render();
+  pullWish();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pullWish(); });
+  setInterval(function () { if (document.visibilityState === 'visible') pullWish(); }, 60000);
 
   // deep link: ?open=<eventId> opens that event's detail modal
   var openId = params.get('open');

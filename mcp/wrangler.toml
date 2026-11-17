@@ -1,0 +1,17 @@
+# NeurIPS 2026 schedule MCP server. Deploy: npx wrangler deploy (see mcp/README.md)
+name = "neurips2026-mcp"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+SITE_URL = "https://min-kang-3b.github.io/neurips2026-schedule"
+SITE_ORIGINS = "https://min-kang-3b.github.io,https://ark1st.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "neurips2026"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[ai]
+binding = "AI"
