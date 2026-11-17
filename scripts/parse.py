@@ -134,7 +134,7 @@ def ev_type(classes, title):
             return c
     if 'Poster Session' in title:
         return 'poster-session'
-    if 'Oral Session' in title:
+    if 'Oral Session' in title or re.match(r'^(\w+ )?Orals \d', title):   # 'Orals 1A Topic', 'Atlanta Orals 1A Topic'
         return 'oral-session'
     return 'session'
 
@@ -251,6 +251,8 @@ for d in details.values():
             oral_of_poster[d['id']] = r['id']
             if r.get('session') and 'Oral' in r['session']:
                 oral_session_members[r['session'].strip()].append(r['id'])
+                if r.get('session_id'):
+                    oral_session_members['#' + r['session_id']].append(r['id'])
 
 papers_main = {}
 oral_of_poster_rev = {o: p for p, o in oral_of_poster.items()}   # oral id -> its poster id
@@ -327,7 +329,7 @@ for loc in LOCS:
         if ev['type'] in ('poster-session', 'oral-session'):
             ids = []
             for cid in ev.pop('children', []) + by_session.get(ev['title'].strip(), []) \
-                    + oral_session_members.get(ev['title'].strip(), []):
+                    + oral_session_members.get(ev['title'].strip(), []) + oral_session_members.get('#' + ev['id'], []):
                 if cid not in ids:
                     ids.append(cid)
                 if cid not in papers_main:

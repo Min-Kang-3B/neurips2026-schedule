@@ -181,6 +181,9 @@ for li in LOC_INFO:
         m = re.match(r'^(Sydney|Atlanta|Paris) (Oral|Poster|Creative AI) Session (\w+)$', e['title'])
         if m:   # deterministic Korean for session names (keeps app terminology: 오럴/포스터)
             ev['title']['ko'] = f"{KO_LOC[m.group(1)]} {KO_SESS[m.group(2)]} {m.group(3)}"
+        elif re.match(r'^(\w+ )?Orals \w+ ', e['title']) and ko_misc.get(f't:{eid}'):
+            # 'Orals 1A Topic' -> '오럴 1A · <translated topic>'
+            ev['title']['ko'] = re.sub(r'^(\S+ )?(?:구두 발표|오럴|구술 발표)\s*(\w+)\s*[:·-]?\s*', r'\1오럴 \2 · ', ev['title']['ko'])
         elif e['title'].startswith('Creative AI Session'):
             ev['title']['ko'] = '크리에이티브 AI 세션 ' + e['title'].split()[-1]
         if e.get('speaker'):
