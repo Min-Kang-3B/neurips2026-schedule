@@ -490,3 +490,24 @@ footer a { color: var(--text2); }
   .week-view { padding-left: 10px; padding-right: 10px; }
   .wk-b { font-size: 11px; padding: 2px 4px; }
 }
+
+/* ---------- venue menu ---------- */
+.loctabs { overflow: visible; }
+.locmenu { position: relative; margin-left: auto; align-self: center; flex: 0 0 auto; }
+.locmenu-btn {
+  font-size: 12.5px; font-weight: 700; color: var(--text2); padding: 6px 11px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); white-space: nowrap;
+}
+.locmenu-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.locmenu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 250px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.locmenu-panel[hidden] { display: none; }
+.locmenu-panel b { font-size: 13.5px; }
+.locmenu-panel p { font-size: 11.5px; color: var(--text3); line-height: 1.4; }
+.locmenu-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+.locmenu-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+.locmenu-row i { font-style: normal; font-size: 11px; color: var(--text3); margin-left: auto; }
+.loctabs-wrap.menu-open { position: relative; z-index: 45; }

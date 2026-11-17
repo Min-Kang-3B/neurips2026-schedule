@@ -31,7 +31,7 @@
       local_time: '현지 시각', oral_pending: 'NeurIPS가 아직 오럴 세션별 논문 배정을 공개하지 않았습니다. 이 개최지의 오럴 논문 전체를 표시합니다.',
       poster_at: '포스터', all_locs: '전체 개최지',
       view_schedule: '📅 일정', view_search: '🔍 논문 검색',
-      s_title: '논문 검색', s_desc: '세 개최지의 본회의·워크숍 논문 {n}편을 제목·저자·기관으로, 또는 의미로 찾습니다.',
+      s_title: '논문 검색', s_desc: '본회의·워크숍 논문 {n}편을 제목·저자·기관으로, 또는 의미로 찾습니다.',
       s_ph: '주제, 제목, 저자, 기관을 입력하거나 초록을 붙여넣으세요', s_go: '검색',
       s_mode_kw: '키워드', s_mode_sem: '🧠 의미 검색',
       s_sem_note: '의미 검색은 영어 문장에서 가장 정확합니다. 모델(약 33MB)은 최초 1회만 내려받고, 입력한 내용은 어디에도 전송되지 않습니다.',
@@ -44,7 +44,8 @@
       view_week: '🗓 타임테이블', wk_title: '⭐ 위시리스트 타임테이블',
       wk_desc: '핀한 일정과 논문을 요일별로 한눈에 봅니다. 일정 탭에서 카드나 논문을 길게 눌러 추가하세요.',
       wk_empty: '아직 이 개최지에 핀한 일정이 없습니다', wk_untimed: '시간 미정', wk_go: '📅 일정에서 고르기',
-      wk_papers: '논문 {n}편', wk_dows: ['일', '월', '화', '수', '목', '금', '토']
+      wk_papers: '논문 {n}편', wk_dows: ['일', '월', '화', '수', '목', '금', '토'],
+      locs_btn: '⚙ 개최지', locs_title: '표시할 개최지', locs_note: '켜 둔 개최지만 일정·검색·타임테이블에 나옵니다.', locs_always: '항상 표시'
     },
     en: {
       search_ph: 'Search events & papers (title, author, session…)',
@@ -69,7 +70,7 @@
       local_time: 'local time', oral_pending: 'NeurIPS has not yet published which orals go in which oral session. Showing every oral at this venue.',
       poster_at: 'Poster', all_locs: 'All venues',
       view_schedule: '📅 Schedule', view_search: '🔍 Paper search',
-      s_title: 'Paper search', s_desc: 'Find any of the {n} main-track and workshop papers across all three venues by title, author, institution — or by meaning.',
+      s_title: 'Paper search', s_desc: 'Find any of the {n} main-track and workshop papers by title, author, institution — or by meaning.',
       s_ph: 'Type a topic, title, author or institution — or paste an abstract', s_go: 'Search',
       s_mode_kw: 'Keyword', s_mode_sem: '🧠 Semantic',
       s_sem_note: 'Semantic search works best with English text. The model (~33 MB) downloads once; nothing you type leaves your browser.',
@@ -82,7 +83,8 @@
       view_week: '🗓 Timetable', wk_title: '⭐ Wishlist timetable',
       wk_desc: 'Your pinned events and papers, laid out by day. Long-press any card or paper in Schedule to add it.',
       wk_empty: 'Nothing pinned at this venue yet', wk_untimed: 'No time set', wk_go: '📅 Pick from Schedule',
-      wk_papers: '{n} papers', wk_dows: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      wk_papers: '{n} papers', wk_dows: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      locs_btn: '⚙ Venues', locs_title: 'Venues to show', locs_note: 'Only enabled venues appear in Schedule, Search and Timetable.', locs_always: 'always on'
     }
   };
 
@@ -102,6 +104,18 @@
   var CHIP_ORDER = ['all', 'wish', 'oral', 'poster', 'invited', 'tutorial', 'workshop', 'expo', 'social', 'ops'];
   var LOCS = {};
   (SCHED.locs || []).forEach(function (l) { LOCS[l.id] = l; });
+  // satellite venues stay hidden until switched on in the venue menu (main venue always on)
+  var MAIN_LOC = 'sydney';
+  var locsOn = {};
+  try { locsOn = JSON.parse(localStorage.getItem('nips_locs_on')) || {}; } catch (e) { /* default */ }
+  function locOn(id) { return id === MAIN_LOC || !!locsOn[id]; }
+  function enabledLocs() { return (SCHED.locs || []).filter(function (l) { return locOn(l.id); }); }
+  function setLocOn(id, on) {
+    if (on) locsOn[id] = 1; else delete locsOn[id];
+    localStorage.setItem('nips_locs_on', JSON.stringify(locsOn));
+    if (!locOn(state.loc)) { setLoc(MAIN_LOC); return; }
+    render();
+  }
   function locDays(locId) { return SCHED.days.filter(function (d) { return d.loc === locId; }); }
   function papersRef(e) { return e.papersRef || e.id; }
 
@@ -185,7 +199,8 @@
     allPapersLoaded: false
   };
   if (['ko', 'en'].indexOf(state.lang) < 0) state.lang = 'ko';
-  if (!LOCS[state.loc]) state.loc = 'sydney';
+  if (!LOCS[state.loc] || !locOn(state.loc)) state.loc = MAIN_LOC;
+  if (params.get('day') && !SCHED.days.some(function (d) { return d.day === params.get('day') && d.loc === state.loc; })) params.delete('day');
   state.day = params.get('day') || localStorage.getItem('nips_day_' + state.loc) || '';
   if (!SCHED.days.some(function (d) { return d.day === state.day && d.loc === state.loc; })) state.day = defaultDay();
   if (params.get('q')) state.q = params.get('q');
@@ -305,6 +320,7 @@
   function sessionsWithPapers() {
     var out = [], seen = {};
     SCHED.days.forEach(function (d) {
+      if (!locOn(d.loc)) return;
       d.events.forEach(function (e) {
         var ref = papersRef(e);
         if (e.nPapers && !seen[ref]) { seen[ref] = 1; out.push({ day: d, ev: e }); }
@@ -413,14 +429,48 @@
   function renderLocTabs(withWishCount) {
     var counts = withWishCount ? wishByLoc() : null;
     return h('div', { class: 'loctabs-wrap' }, [
-      h('nav', { class: 'loctabs' }, (SCHED.locs || []).map(function (l) {
+      h('nav', { class: 'loctabs' }, enabledLocs().map(function (l) {
         var n = counts ? (counts[l.id] || 0) : 0;
         return h('button', {
           class: 'loctab' + (state.loc === l.id ? ' on' : ''),
           onclick: function () { if (state.loc !== l.id) setLoc(l.id); }
         }, [h('b', null, [loc(l.name), n ? h('em', { class: 'loc-wn' }, ['⭐ ' + n]) : null]), h('span', null, [loc(l.role) + ' · ' + loc(l.range)])]);
-      }))
+      }).concat([renderLocMenu()]))
     ]);
+  }
+  function renderLocMenu() {
+    var wrap = h('div', { class: 'locmenu' });
+    var panel = h('div', { class: 'locmenu-panel', hidden: '' }, [
+      h('b', null, [t('locs_title')]),
+      h('p', null, [t('locs_note')])
+    ].concat((SCHED.locs || []).map(function (l) {
+      var always = l.id === MAIN_LOC;
+      var cb = h('input', { type: 'checkbox' });
+      cb.checked = locOn(l.id); cb.disabled = always;
+      cb.addEventListener('change', function () { setLocOn(l.id, cb.checked); });
+      return h('label', { class: 'locmenu-row' }, [cb, h('span', null, [loc(l.name) + ' · ' + loc(l.range)]),
+        always ? h('i', null, [t('locs_always')]) : null]);
+    })));
+    var btn = h('button', { class: 'locmenu-btn', 'aria-expanded': 'false', onclick: function (ev) {
+      ev.stopPropagation();
+      var open = panel.hasAttribute('hidden');
+      if (open) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '');
+      btn.setAttribute('aria-expanded', String(open));
+      // lift the venue row above the sticky day bar while the panel is open
+      var row = wrap.closest('.loctabs-wrap');
+      if (row) row.classList.toggle('menu-open', open);
+      if (open) setTimeout(function () {
+        document.addEventListener('click', function close(e) {
+          if (!wrap.contains(e.target)) {
+            panel.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false');
+            if (row) row.classList.remove('menu-open');
+            document.removeEventListener('click', close);
+          }
+        });
+      });
+    } }, [t('locs_btn')]);
+    wrap.appendChild(btn); wrap.appendChild(panel);
+    return wrap;
   }
 
   function renderDayTabs() {
@@ -785,6 +835,7 @@
     var q = state.q.toLowerCase();
     var evHits = [];
     SCHED.days.forEach(function (d) {
+      if (!locOn(d.loc)) return;
       d.events.forEach(function (e) {
         if (!eventMatchesChip(e)) return;
         var hay = [e.title.en, e.title.ko, e.speaker, e.organizers, e.room].join(' ').toLowerCase();
@@ -1216,6 +1267,7 @@
   }
   function rowLoc(r) { var hit = EV_INDEX[r[1]]; return hit ? hit.day.loc : ''; }
   function passFilters(r) {
+    if (!locOn(rowLoc(r))) return false;
     if (SX.loc !== 'all' && rowLoc(r) !== SX.loc) return false;
     if (SX.kind === 'main' && r[7]) return false;
     if (SX.kind === 'ws' && !r[7]) return false;
@@ -1343,7 +1395,8 @@
     function rerender() { main.innerHTML = ''; renderSearchView(main); }
     function filterChip(label, on, fn) { return h('button', { class: 'chip' + (on ? ' on' : ''), onclick: function () { fn(); rerenderKeep(); } }, [label]); }
     function rerenderKeep() { SX.q = ta.value; var r = SX.results; main.innerHTML = ''; renderSearchView(main); SX.results = r; drawResults(main.querySelector('.sv')); }
-    var locChips = [filterChip(t('s_all'), SX.loc === 'all', function () { SX.loc = 'all'; })].concat((SCHED.locs || []).map(function (l) {
+    if (SX.loc !== 'all' && !locOn(SX.loc)) SX.loc = 'all';
+    var locChips = enabledLocs().length < 2 ? [] : [filterChip(t('s_all'), SX.loc === 'all', function () { SX.loc = 'all'; })].concat(enabledLocs().map(function (l) {
       return filterChip(loc(l.name), SX.loc === l.id, function () { SX.loc = l.id; });
     }));
     var kindChips = [
@@ -1366,7 +1419,7 @@
       })))
     ]));
     if (SX.mode === 'sem') view.appendChild(h('div', { class: 'prog-note' }, [t('s_sem_note') + (hasHangul ? ' ' + t('s_ko_note') : '')]));
-    view.appendChild(h('div', { class: 'chips s-filters' }, locChips.concat([h('span', { class: 's-sep' })]).concat(kindChips)));
+    view.appendChild(h('div', { class: 'chips s-filters' }, (locChips.length ? locChips.concat([h('span', { class: 's-sep' })]) : []).concat(kindChips)));
     view.appendChild(h('div', { class: 's-status' }));
     view.appendChild(h('div', { class: 's-results' }));
     main.appendChild(view);
