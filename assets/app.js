@@ -773,6 +773,34 @@
     });
     return out;
   }
+  // poster boards can be missing (pinned before boards were assigned, or added via MCP) or
+  // reassigned by a data refresh: re-read them from the session files once per paper per load
+  var wishMetaSeen = {};
+  function refreshWishMeta() {
+    var refs = {};
+    Object.keys(wish.papers).forEach(function (pid) {
+      if (wishMetaSeen[pid]) return;
+      wishMetaSeen[pid] = 1;
+      var hit = wish.papers[pid].s && EV_INDEX[wish.papers[pid].s];
+      if (hit) refs[papersRef(hit.ev)] = 1;
+    });
+    var keys = Object.keys(refs);
+    if (!keys.length) return;
+    Promise.all(keys.map(function (ref) {
+      return loadPapers(ref).then(function (list) {
+        var changed = false;
+        (list || []).forEach(function (fp) {
+          var w = wish.papers[fp.id];
+          if (w && fp.pos && w.pos !== fp.pos) { w.pos = fp.pos; changed = true; }
+        });
+        return changed;
+      }, function () { return false; });
+    })).then(function (rs) {
+      if (!rs.some(Boolean)) return;
+      saveWish();
+      if (!document.querySelector('.overlay')) render();
+    });
+  }
   function wishByLoc() {
     var c = {};
     wishItems().forEach(function (it) { c[it.day.loc] = (c[it.day.loc] || 0) + 1; });
@@ -786,6 +814,7 @@
   function dowOf(iso) { return new Date(iso + 'T12:00:00Z').getUTCDay(); }
 
   function renderWeek(main) {
+    refreshWishMeta();
     var locId = state.loc;
     var shift = state.tz === 'kst' ? (9 - (UTC_OFF[locId] || 9)) * 60 : 0;
     var dates = locDays(locId).map(function (d) { return d.date; });
@@ -938,7 +967,9 @@
       h('span', { class: 'wk-t' }, [hm(b.s) + (e.room ? ' · ' + e.room : '')]),
       h('b', null, [loc(e.title)]),
       papers.length ? h('span', { class: 'wk-p' }, ['⭐ ' + t('wk_papers').replace('{n}', papers.length)]) : null,
-      papers.length ? h('ul', null, papers.slice(0, 6).map(function (p) { return h('li', null, [loc(p)]); })) : null
+      papers.length ? h('ul', null, papers.slice().sort(function (a, c) { return (a.pos || '~').localeCompare(c.pos || '~'); }).slice(0, 8).map(function (p) {
+        return h('li', null, [p.pos ? h('span', { class: 'wk-pos' }, [p.pos]) : null, loc(p)]);
+      })) : null
     ]);
     return el;
   }
@@ -1194,6 +1225,10 @@
     var wrap = h('div');
     var listEl = h('div');
     var count = h('div', { class: 'pcount' });
+    // wishlisted papers float to the top (stable otherwise)
+    var nWish = papers.filter(function (p) { return wish.papers[p.id]; }).length;
+    if (nWish) papers = papers.filter(function (p) { return wish.papers[p.id]; })
+      .concat(papers.filter(function (p) { return !wish.papers[p.id]; }));
     var filtered = papers;
     var shown = 0;
     var CHUNK = 60;
@@ -1201,7 +1236,8 @@
     var curQ = '', curTag = '';
     function applyFilter() {
       filtered = papers.filter(function (p) {
-        if (curTag && p.tag !== curTag) return false;
+        if (curTag === 'wish') { if (!wish.papers[p.id]) return false; }
+        else if (curTag && p.tag !== curTag) return false;
         if (!curQ) return true;
         var tagx = p.tag ? (p.tag + (p.tag === 'Oral' ? ' 구두' : ' 스포트라이트')) : '';
         return ((p.en || '') + ' ' + (p.ko || '') + ' ' + (p.authors || '') + ' ' + (p.inst || '') + ' ' + (p.pos || '') + ' ' + tagx).toLowerCase().indexOf(curQ) >= 0;
@@ -1215,8 +1251,9 @@
     var nOral = papers.filter(function (p) { return p.tag === 'Oral'; }).length;
     var nSpot = papers.filter(function (p) { return p.tag === 'Spotlight'; }).length;
     var tagChips = null;
-    if (nOral || nSpot) {
+    if (nOral || nSpot || nWish) {
       var defs = [['', t('tag_all') + ' ' + papers.length]];
+      if (nWish) defs.push(['wish', '⭐ ' + (state.lang === 'ko' ? '위시리스트' : 'Wishlist') + ' ' + nWish]);
       if (nOral) defs.push(['Oral', '🎓 ' + (state.lang === 'ko' ? '오럴' : 'Oral') + ' ' + nOral]);
       if (nSpot) defs.push(['Spotlight', '✨ ' + (state.lang === 'ko' ? '스포트라이트' : 'Spotlight') + ' ' + nSpot]);
       tagChips = h('div', { class: 'chips tagchips' }, defs.map(function (d) {

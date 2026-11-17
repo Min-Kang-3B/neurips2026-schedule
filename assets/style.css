@@ -482,6 +482,8 @@ footer a { color: var(--text2); }
 .wk-b ul { list-style: none; font-size: 10.5px; color: var(--text2); }
 .wk-b li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wk-b li::before { content: '· '; }
+.wk-b li:has(.wk-pos)::before { content: none; }
+.wk-pos { display: inline-block; font: 700 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--c-special); background: color-mix(in srgb, var(--c-special) 12%, transparent); border-radius: 4px; padding: 0 4px; margin-right: 4px; }
 .wk-now { position: absolute; left: 0; right: 0; height: 2px; background: #dc2626; z-index: 4; }
 .wk-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #dc2626; }
 .wk-empty { padding: 28px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
