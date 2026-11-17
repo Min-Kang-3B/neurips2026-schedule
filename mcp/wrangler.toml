@@ -11,7 +11,7 @@ SITE_ORIGINS = "https://min-kang-3b.github.io,https://ark1st.github.io"
 [[d1_databases]]
 binding = "DB"
 database_name = "neurips2026"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "d907cad9-fedd-47ea-9b85-57491d874155"
 
 [ai]
 binding = "AI"

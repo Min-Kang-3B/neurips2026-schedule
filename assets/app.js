@@ -142,7 +142,7 @@
 
   // ---------------- wishlist sync (MCP server's /api/wish/<code>) ----------------
   // the server copy wins on pull; local edits are pushed right away (dirty flag survives offline)
-  var SYNC_API = localStorage.getItem('nips_sync_api') || 'https://neurips2026-mcp.REPLACE.workers.dev';
+  var SYNC_API = localStorage.getItem('nips_sync_api') || 'https://neurips2026-mcp.neurips2026-mcp.workers.dev';
   if (/REPLACE/.test(SYNC_API)) SYNC_API = '';
   var CODE_RE = /^[a-z0-9]{20,40}$/;
   var sync = { code: localStorage.getItem('nips_sync_code') || '', last: +localStorage.getItem('nips_sync_last') || 0, err: false };
