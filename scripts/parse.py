@@ -291,6 +291,10 @@ def paper_rec(pid, title=None):
             rec['authors'] = paper_authors(ex.get('speakers/authors'))
     if pid in poster_sess_of_oral:
         rec['psess'] = poster_sess_of_oral[pid]
+    # orals: board number lives on the companion poster
+    pp = paper_by_id.get(oral_of_poster_rev.get(pid, ''))
+    if not rec.get('pos') and pp and pp.get('poster_position'):
+        rec['pos'] = pp['poster_position']
     return rec
 
 
