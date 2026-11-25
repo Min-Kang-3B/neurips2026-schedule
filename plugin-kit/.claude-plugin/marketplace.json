@@ -1,0 +1,14 @@
+{
+  "name": "neurips2026-kit",
+  "owner": {
+    "name": "NeurIPS 2026 schedule (unofficial)"
+  },
+  "plugins": [
+    {
+      "name": "neurips2026",
+      "source": "./plugins/neurips2026",
+      "description": "NeurIPS 2026 paper search, schedule and wishlist via MCP, plus a planning skill"
+    }
+  ],
+  "description": "NeurIPS 2026 conference tools (paper search, schedule, wishlist)"
+}

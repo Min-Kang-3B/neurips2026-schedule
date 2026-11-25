@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "neurips2026": {
+      "type": "http",
+      "url": "https://neurips2026-mcp.neurips2026-mcp.workers.dev/mcp/${user_config.sync_code}"
+    }
+  }
+}
