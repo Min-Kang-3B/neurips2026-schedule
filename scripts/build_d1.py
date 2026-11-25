@@ -22,8 +22,10 @@ def load_js(path):
 def q(v):
     if v is None:
         return 'NULL'
-    if isinstance(v, (int, float)):
+    if isinstance(v, bool) or isinstance(v, int):
         return str(int(v))
+    if isinstance(v, float):
+        return repr(v)
     return "'" + str(v).replace("'", "''") + "'"
 
 
