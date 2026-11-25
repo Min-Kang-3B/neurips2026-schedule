@@ -20,11 +20,11 @@ NeurIPS 2026 논문 검색, 일정 조회, 위시리스트 관리를 AI 도구�
 이 저장소 자체가 플러그인 마켓플레이스입니다.
 
 ```bash
-claude plugin marketplace add <이 저장소의 git 주소>
+claude plugin marketplace add https://github.com/3billion/neurips2026-kit
 claude plugin install neurips2026@neurips2026-kit
 ```
 
-- 내부 git 주소는 `https://git.example.com/team/neurips2026-kit.git` 같은 HTTPS 주소나 `git@...` 같은 SSH 주소를 씁니다. 평소 `git clone`이 되는 주소면 됩니다.
+- 비공개 저장소라 3billion GitHub 조직에 접근 권한이 있어야 합니다. 평소 `git clone`이 되는 계정이면 됩니다. SSH를 쓰면 `git@github.com:3billion/neurips2026-kit.git`도 됩니다.
 - Claude Code 안에서는 `/plugin marketplace add <주소>`, `/plugin install neurips2026@neurips2026-kit`로도 설치할 수 있습니다.
 
 동기화 코드를 넣을 때(선택):
