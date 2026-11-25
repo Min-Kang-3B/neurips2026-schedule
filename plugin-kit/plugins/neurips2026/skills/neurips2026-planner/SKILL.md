@@ -18,7 +18,8 @@ Use the `neurips2026` MCP server tools. All data is public conference informatio
 |---|---|
 | Find papers by topic/meaning | `search_papers` with `mode: "semantic"` (English description works best) |
 | Find by exact words, author, institution, board | `search_papers` with `mode: "keyword"` |
-| Abstract (EN/KO) and full details | `get_paper` |
+| Abstract (EN/KO), review scores + review/poster summaries, poster image | `get_paper` |
+| Highly rated papers on a topic | `search_papers` with `min_review_avg` (1-6 scale) or `sort: "rating"` |
 | Day schedule / list of days | `get_schedule` (`date`, optional `type` like `oral`, `poster`, `workshop`) |
 | Find talks, workshops, socials | `search_events` |
 | Wishlist (only if the URL has a sync code) | `get_wishlist`, `add_to_wishlist` (`paper_ids` / `event_ids`), `remove_from_wishlist` |
@@ -26,6 +27,8 @@ Use the `neurips2026` MCP server tools. All data is public conference informatio
 ## Workflows
 - **"Find papers on X"** → semantic search (limit ~10), then group by session time; flag Oral/Spotlight.
 - **"Plan my day"** → `get_wishlist`, sort by start time, point out overlaps (`conflicts`) and suggest which to drop; include room hops.
+- **"Is this paper good / what did reviewers say?"** → `get_paper`; quote `openreview_reviews` and `review_summary_ko`, mention it is an AI summary.
+- **"What does the poster show?"** → `get_paper`; give `poster_summary` key numbers and link `poster_image`.
 - **"Add these"** → confirm the exact papers first, then `add_to_wishlist`; report what changed.
 - If wishlist tools are missing, tell the user to create a sync code on the site
   (Timetable → 🔗 AI & sync) and reconnect with `…/mcp/<code>`.

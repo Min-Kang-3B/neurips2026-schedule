@@ -56,9 +56,12 @@ for pid, sid, en, ko, authors, inst, tag, ws, emb in rows:
         continue
     full = papers_by_ref.get(ref_of[sid], {}).get(pid, {})
     hay = ' '.join([en or '', ko or '', authors or '', inst or '', full.get('pos') or '']).lower()
+    insf = os.path.join(DATA, 'ins', pid + '.json')
+    ins = open(insf, encoding='utf-8').read() if (not ws and os.path.exists(insf)) else None
     out.append('INSERT INTO papers VALUES (' + ','.join(q(v) for v in [
         pid, sid, events[sid][0]['loc'], en, ko, authors, inst, tag, ws, emb, full.get('pos'), full.get('psess'),
-        full.get('link'), text(full.get('abs')), text(full.get('absKo')), hay]) + ');')
+        full.get('link'), text(full.get('abs')), text(full.get('absKo')), hay,
+        full.get('rv') if not ws else None, ins]) + ');')
     n += 1
 open(OUT, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
 print(f'events {len(events)} | papers {n} -> {OUT} ({os.path.getsize(OUT) / 1e6:.1f} MB)')

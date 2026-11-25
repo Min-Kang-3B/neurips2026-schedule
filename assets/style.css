@@ -534,3 +534,24 @@ footer a { color: var(--text2); }
 .sync-have input { flex: 1 1 180px; min-width: 0; font-size: 12.5px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); }
 .sync-msg { color: #dc2626; font-size: 12px; }
 .syncbox .now-btn { align-self: flex-start; }
+
+/* poster + review insight */
+.ptag.ptag-rv { color: #b7791f; background: color-mix(in srgb, #f6ad55 18%, transparent); }
+.ptag.ptag-pz { padding: 1px 5px; }
+.ins { margin-top: 10px; display: grid; gap: 10px; }
+.ins-loading { font-size: 12.5px; color: var(--text3); }
+.ins-sec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13.5px; }
+.ins-h { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
+.ins-img { display: block; margin-bottom: 10px; }
+.ins-img img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+.ins-tldr { font-weight: 700; margin-bottom: 6px; }
+.ins-dl > div { margin: 3px 0; color: var(--text2); }
+.ins-res { margin: 6px 0 0 18px; font-variant-numeric: tabular-nums; }
+.ins-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: 12.5px; color: var(--text2); }
+.ins-note { margin-top: 8px; font-size: 11.5px; color: var(--text3); }
+.ins-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ins-chip { font-size: 12px; background: var(--surface2); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.ins-chip.dec { font-weight: 700; }
+.ins-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0; }
+.ins-cols ul { margin: 4px 0 0 18px; }
+@media (max-width: 600px) { .ins-cols { grid-template-columns: 1fr; } }

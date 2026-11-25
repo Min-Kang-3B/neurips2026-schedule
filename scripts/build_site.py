@@ -28,6 +28,11 @@ papers_main = load('papers_main.json')
 ws_papers = load('ws_papers.json')
 ws_program = load('ws_program.json')
 orals_by_loc = load('orals_by_loc.json')
+# OpenReview stats + codex summaries (optional; see openreview_build.py / summarize_codex.py)
+or_stats = load('or_stats.json')
+sum_or = load('sum_orsum.json')
+sum_poster = load('sum_poster.json')
+poster_ids = set(f[:-5] for f in os.listdir('posters_site')) if os.path.isdir('posters_site') else set()
 details = {}
 for line in open('details.jsonl'):
     try:
@@ -106,6 +111,13 @@ def paper_entry(pid):
         ent['abs'] = md_inline(p['abs'])
     if ko_pabs.get(pid):
         ent['absKo'] = md_inline(ko_pabs[pid])
+    st = or_stats.get(pid)
+    if st and st.get('avg') is not None:
+        ent['rv'] = st['avg']
+    if pid in poster_ids:
+        ent['pz'] = 1
+    if st or pid in sum_poster or pid in poster_ids:
+        ent['ins'] = 1
     return ent
 
 
@@ -298,6 +310,27 @@ for sid, plist in paper_files.items():
         f.write(f'window.NIPS_PAPERS["{sid}"] = ')
         json.dump(plist, f, ensure_ascii=False, separators=(',', ':'))
         f.write(f';window.dispatchEvent(new CustomEvent("papers-loaded",{{detail:"{sid}"}}));')
+
+# per-paper insight files (loaded when a paper is expanded)
+ins_dir = os.path.join(SITE, 'data', 'ins')
+os.makedirs(ins_dir, exist_ok=True)
+n_ins = 0
+for pid in papers_main:
+    st, so, sp = or_stats.get(pid), sum_or.get(pid), sum_poster.get(pid)
+    if not (st or so or sp or pid in poster_ids):
+        continue
+    rec = {}
+    if st:
+        rec['or'] = {k: st.get(k) for k in ('or', 'decision', 'area', 'ratings', 'avg', 'std', 'conf', 'sub', 'n_rebuttal')}
+    if so:
+        rec['rs'] = so
+    if sp:
+        rec['ps'] = sp
+    if pid in poster_ids:
+        rec['img'] = 1
+    json.dump(rec, open(os.path.join(ins_dir, pid + '.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+    n_ins += 1
+print('insight files', n_ins, '| posters', len(poster_ids), '| review stats', len(or_stats))
 
 n_ev = sum(len(d['events']) for d in out_days)
 allp = [p for v in paper_files.values() for p in v]

@@ -2,7 +2,8 @@
 -- refresh (scripts/build_d1.py); the wish table holds synced wishlists and is never reseeded.
 CREATE TABLE IF NOT EXISTS papers (
   id TEXT NOT NULL, sid TEXT NOT NULL, venue TEXT, en TEXT, ko TEXT, authors TEXT, inst TEXT,
-  tag TEXT, ws INTEGER, emb INTEGER, pos TEXT, psess TEXT, link TEXT, abs TEXT, abs_ko TEXT, hay TEXT
+  tag TEXT, ws INTEGER, emb INTEGER, pos TEXT, psess TEXT, link TEXT, abs TEXT, abs_ko TEXT, hay TEXT,
+  rv REAL, ins TEXT  -- OpenReview avg rating; JSON {or, rs, ps, img} (poster + review summaries)
 );
 CREATE INDEX IF NOT EXISTS papers_id ON papers(id);
 CREATE INDEX IF NOT EXISTS papers_emb ON papers(emb);

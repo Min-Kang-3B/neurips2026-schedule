@@ -65,9 +65,22 @@ function paperOut(p, ev, env, wish, withAbstract) {
     session: sessionOf(ev, env), poster_session: p.psess || null, poster_board: p.pos || null,
     openreview: p.link || null
   };
+  if (p.rv != null) o.review_avg = p.rv;
   if (p.score != null) o.match = Math.round(p.score * 100) / 100;
   if (wish) o.wishlisted = !!wish.papers[p.id];
-  if (withAbstract) { o.abstract = p.abs || null; o.abstract_ko = p.abs_ko || null; }
+  if (withAbstract) {
+    o.abstract = p.abs || null; o.abstract_ko = p.abs_ko || null;
+    if (p.ins) {
+      try {
+        const d = JSON.parse(p.ins);
+        if (d.or) o.openreview_reviews = { decision: d.or.decision, area: d.or.area, ratings: d.or.ratings, avg: d.or.avg, std: d.or.std, confidence: d.or.conf, subscores: d.or.sub, rebuttals: d.or.n_rebuttal };
+        if (d.rs) o.review_summary_ko = d.rs;
+        if (d.ps) o.poster_summary = d.ps;
+        if (d.img) o.poster_image = POSTER_BASE + p.id + '.webp';
+        o.note = 'review_summary_ko and poster_summary are AI-generated from public OpenReview reviews and the poster image; verify numbers on the poster.';
+      } catch (e) { /* ignore bad row */ }
+    }
+  }
   return o;
 }
 async function eventsById(env, ids) {
@@ -121,6 +134,7 @@ function filters(args) {
   if (args.track === 'workshop') where.push('ws = 1');
   if (args.orals_spotlights_only) where.push("tag IN ('Oral', 'Spotlight')");
   if (args.institution) { where.push("lower(inst) LIKE ? ESCAPE '\\'"); bind.push('%' + likeEsc(String(args.institution).toLowerCase()) + '%'); }
+  if (typeof args.min_review_avg === 'number') { where.push('rv >= ?'); bind.push(args.min_review_avg); }
   return { where, bind };
 }
 async function keywordSearch(env, args, limit) {
@@ -133,8 +147,8 @@ async function keywordSearch(env, args, limit) {
     score.push('(instr(lower(en), ?) > 0) * 3 + (instr(ko, ?) > 0) * 3 + (instr(lower(inst), ?) > 0) * 2 + (instr(lower(authors), ?) > 0)');
     sbind.push(t, t, t, t);
   });
-  const sql = `SELECT id, sid, venue, en, ko, authors, inst, tag, ws, pos, psess, link, (${score.join(' + ')}) AS kscore
-    FROM papers WHERE ${where.join(' AND ')} ORDER BY kscore DESC, (tag != '') DESC, ws LIMIT ?`;
+  const sql = `SELECT id, sid, venue, en, ko, authors, inst, tag, ws, pos, psess, link, rv, (${score.join(' + ')}) AS kscore
+    FROM papers WHERE ${where.join(' AND ')} ORDER BY ${args.sort === 'rating' ? 'coalesce(rv, 0) DESC, kscore DESC' : "kscore DESC, (tag != '') DESC, ws"} LIMIT ?`;
   const r = await env.DB.prepare(sql).bind(...sbind, ...bind, limit).all();
   return r.results;
 }
@@ -177,7 +191,7 @@ async function semanticSearch(env, args, limit) {
   const ids = top.map(t => t[1]);
   for (let i = 0; i < ids.length; i += 90) {
     const chunk = ids.slice(i, i + 90);
-    const r = await env.DB.prepare(`SELECT id, sid, venue, en, ko, authors, inst, tag, ws, pos, psess, link, emb FROM papers
+    const r = await env.DB.prepare(`SELECT id, sid, venue, en, ko, authors, inst, tag, ws, pos, psess, link, rv, emb FROM papers
       WHERE emb IN (${chunk.map(() => '?').join(',')}) AND ${where.join(' AND ')}`).bind(...chunk, ...bind).all();
     rows.push(...r.results);
   }
@@ -187,12 +201,13 @@ async function semanticSearch(env, args, limit) {
 }
 
 // ---------------- tools ----------------
+const POSTER_BASE = 'https://min-kang-3b.github.io/neurips2026-posters/p/';
 const VENUE_PROP = { type: 'string', enum: ['sydney', 'atlanta', 'paris', 'all'], description: 'Venue filter. Default: sydney.' };
 const TOOLS = [
   {
     name: 'search_papers',
     title: 'Search NeurIPS 2026 papers',
-    description: 'Find NeurIPS 2026 papers. mode "keyword" matches title (English or Korean), authors, institutions and poster board; every word must match. mode "semantic" ranks main-track papers by meaning of an English description or abstract (workshop papers are keyword-only). Returns session time/room, poster board and wishlist state.',
+    description: 'Find NeurIPS 2026 papers. mode "keyword" matches title (English or Korean), authors, institutions and poster board; every word must match. mode "semantic" ranks main-track papers by meaning of an English description or abstract (workshop papers are keyword-only). Returns session time/room, poster board, average OpenReview rating (review_avg) and wishlist state. Use get_paper for the AI summaries of the reviews and the poster.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -202,6 +217,8 @@ const TOOLS = [
         track: { type: 'string', enum: ['all', 'main', 'workshop'], description: 'Default all' },
         orals_spotlights_only: { type: 'boolean' },
         institution: { type: 'string', description: 'Substring of an institution name, e.g. KAIST' },
+        min_review_avg: { type: 'number', description: 'Only papers whose average OpenReview rating (1-6 scale) is at least this' },
+        sort: { type: 'string', enum: ['relevance', 'rating'], description: 'keyword mode: sort by relevance (default) or by average review rating' },
         limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 15' }
       },
       required: ['query']
@@ -211,7 +228,7 @@ const TOOLS = [
   {
     name: 'get_paper',
     title: 'Get paper details',
-    description: 'Full details of one paper by id, including the English abstract and its Korean translation.',
+    description: 'Full details of one paper by id: English abstract + Korean translation, OpenReview ratings/decision, a Korean AI summary of the reviews (one-line verdict, strengths, weaknesses, debate) and, when the poster is published, an AI summary of the poster (takeaway, method, key numbers, datasets, code) plus the poster image URL.',
     inputSchema: { type: 'object', properties: { paper_id: { type: 'string' } }, required: ['paper_id'] },
     annotations: { readOnlyHint: true, openWorldHint: false }
   },

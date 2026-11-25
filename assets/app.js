@@ -20,6 +20,10 @@
       load_all: '전체 논문({n}편)에서도 검색하기 — 최초 1회 로딩',
       loading: '불러오는 중…', show_original: '영어 원문 보기', hide_original: '원문 닫기',
       orig_label: '원문(EN)', in_session: '세션', view_original_title: '원제',
+      ins_poster: '포스터', ins_reviews: 'OpenReview 리뷰', ins_rating: '점수', ins_avg: '평균', ins_conf: '확신도',
+      ins_quality: '품질', ins_clarity: '명료성', ins_significance: '중요성', ins_originality: '독창성',
+      ins_pros: '강점', ins_cons: '약점', ins_debate: '쟁점', ins_problem: '문제', ins_method: '방법', ins_code: '코드',
+      ins_auto: '포스터에서 AI로 자동 추출 — 수치는 원본 포스터로 확인하세요.', ins_auto_rev: '공개 리뷰를 AI로 요약했습니다.', ins_full_reviews: '리뷰 전문 (OpenReview)',
       install_app: '앱 설치', offline_save: '⬇ 오프라인 저장 (전체 데이터)', offline_saving: '저장 중… ',
       offline_done: '오프라인 저장 완료 ✓', offline_desc: '설치 후 저장하면 인터넷 없이도 전체 일정·논문을 볼 수 있습니다.',
       wish: '위시', route: '동선', wish_empty: '카드나 논문을 길게 누르면 위시리스트에 추가됩니다',
@@ -66,6 +70,10 @@
       load_all: 'Also search all {n} papers — one-time load',
       loading: 'Loading…', show_original: 'Show English original', hide_original: 'Hide original',
       orig_label: 'Original (EN)', in_session: 'Session', view_original_title: 'Original title',
+      ins_poster: 'Poster', ins_reviews: 'OpenReview reviews', ins_rating: 'Ratings', ins_avg: 'avg', ins_conf: 'Confidence',
+      ins_quality: 'Quality', ins_clarity: 'Clarity', ins_significance: 'Significance', ins_originality: 'Originality',
+      ins_pros: 'Strengths', ins_cons: 'Weaknesses', ins_debate: 'Debate', ins_problem: 'Problem', ins_method: 'Method', ins_code: 'Code',
+      ins_auto: 'Auto-extracted from the poster by AI — check numbers on the poster.', ins_auto_rev: 'AI summary of the public reviews.', ins_full_reviews: 'Full reviews (OpenReview)',
       install_app: 'Install app', offline_save: '⬇ Save for offline (all data)', offline_saving: 'Saving… ',
       offline_done: 'Saved for offline ✓', offline_desc: 'Install and save to browse the full schedule and papers without internet.',
       wish: 'Wishlist', route: 'Route', wish_empty: 'Long-press any card or paper to add it to your wishlist',
@@ -1298,6 +1306,66 @@
     return wrap;
   }
 
+  // ---------------- poster + OpenReview insight (data/ins/<id>.json) ----------------
+  var POSTER_BASE = 'https://min-kang-3b.github.io/neurips2026-posters/p/';
+  function renderInsight(p, bodyEl) {
+    var box = h('div', { class: 'ins' }, [h('div', { class: 'ins-loading' }, [t('loading')])]);
+    bodyEl.insertBefore(box, bodyEl.querySelector('.plinks'));
+    fetch('data/ins/' + p.id + '.json').then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
+      box.innerHTML = '';
+      var ko = state.lang === 'ko';
+      var ps = d.ps, rs = d.rs, or = d.or;
+      if (d.img || ps) {
+        var sec = h('div', { class: 'ins-sec' }, [h('div', { class: 'ins-h' }, ['🖼 ' + t('ins_poster')])]);
+        if (d.img) {
+          var src = POSTER_BASE + p.id + '.webp';
+          sec.appendChild(h('a', { href: src, target: '_blank', rel: 'noopener', class: 'ins-img', onclick: function (e) { e.stopPropagation(); } }, [
+            h('img', { src: src, loading: 'lazy', alt: 'poster' })
+          ]));
+        }
+        if (ps) {
+          var tl = ko ? (ps.tldr_ko || ps.tldr_en) : (ps.tldr_en || ps.tldr_ko);
+          if (tl) sec.appendChild(h('div', { class: 'ins-tldr' }, [tl]));
+          var dl = [];
+          if (ps.problem) dl.push(h('div', null, [h('b', null, [t('ins_problem') + ' ']), ps.problem]));
+          if (ps.method) dl.push(h('div', null, [h('b', null, [t('ins_method') + ' ']), ps.method]));
+          if (dl.length) sec.appendChild(h('div', { class: 'ins-dl' }, dl));
+          if (ps.results && ps.results.length) sec.appendChild(h('ul', { class: 'ins-res' }, ps.results.map(function (x) { return h('li', null, [x]); })));
+          var meta = [];
+          if (ps.datasets && ps.datasets.length) meta.push(h('span', null, ['📊 ' + ps.datasets.slice(0, 6).join(', ')]));
+          if (ps.code && /^https?:/.test(ps.code)) meta.push(h('a', { href: ps.code, target: '_blank', rel: 'noopener' }, ['💻 ' + t('ins_code') + ' ↗']));
+          if (meta.length) sec.appendChild(h('div', { class: 'ins-meta' }, meta));
+          sec.appendChild(h('div', { class: 'ins-note' }, [t('ins_auto')]));
+        }
+        box.appendChild(sec);
+      }
+      if (or || rs) {
+        var rsec = h('div', { class: 'ins-sec' }, [h('div', { class: 'ins-h' }, ['📝 ' + t('ins_reviews')])]);
+        if (or) {
+          var chips = [];
+          if (or.decision) chips.push(h('span', { class: 'ins-chip dec' }, [or.decision]));
+          if (or.ratings && or.ratings.length) chips.push(h('span', { class: 'ins-chip' }, [t('ins_rating') + ' ' + or.ratings.join(' · ') + '  (' + t('ins_avg') + ' ' + or.avg + ')']));
+          if (or.conf != null) chips.push(h('span', { class: 'ins-chip' }, [t('ins_conf') + ' ' + or.conf]));
+          var sub = or.sub || {};
+          var sk = ['quality', 'clarity', 'significance', 'originality'].filter(function (k) { return sub[k] != null; });
+          if (sk.length) chips.push(h('span', { class: 'ins-chip' }, [sk.map(function (k) { return t('ins_' + k) + ' ' + sub[k]; }).join(' · ')]));
+          rsec.appendChild(h('div', { class: 'ins-chips' }, chips));
+        }
+        if (rs) {
+          if (rs.one) rsec.appendChild(h('div', { class: 'ins-tldr' }, [rs.one]));
+          var cols = [];
+          if (rs.pros && rs.pros.length) cols.push(h('div', { class: 'ins-col pro' }, [h('b', null, ['👍 ' + t('ins_pros')]), h('ul', null, rs.pros.map(function (x) { return h('li', null, [x]); }))]));
+          if (rs.cons && rs.cons.length) cols.push(h('div', { class: 'ins-col con' }, [h('b', null, ['👎 ' + t('ins_cons')]), h('ul', null, rs.cons.map(function (x) { return h('li', null, [x]); }))]));
+          if (cols.length) rsec.appendChild(h('div', { class: 'ins-cols' }, cols));
+          if (rs.debate) rsec.appendChild(h('div', { class: 'ins-dl' }, [h('b', null, ['⚖️ ' + t('ins_debate') + ' ']), rs.debate]));
+          rsec.appendChild(h('div', { class: 'ins-note' }, [t('ins_auto_rev')]));
+        }
+        if (or && or.or) rsec.appendChild(h('div', { class: 'plinks linkrow' }, [h('a', { href: 'https://openreview.net/forum?id=' + or.or, target: '_blank', rel: 'noopener' }, [t('ins_full_reviews') + ' ↗'])]));
+        box.appendChild(rsec);
+      }
+    }).catch(function () { box.remove(); });
+  }
+
   function renderPaperItem(p, opts) {
     opts = opts || {};
     var title = (state.lang === 'ko' && p.ko) ? p.ko : (p.en || '');
@@ -1316,6 +1384,8 @@
     if (p.time) tags.push(h('span', { class: 'ptag oraltime' }, [p.time]));
     if (p.psess) tags.push(h('span', { class: 'ptag' }, ['📌 ' + p.psess.replace(/^(Sydney|Atlanta|Paris) /, '')]));
     if (p.pos) tags.push(h('span', { class: 'ptag' }, [p.pos]));
+    if (p.rv != null) tags.push(h('span', { class: 'ptag ptag-rv', title: t('ins_rating') }, ['★ ' + Number(p.rv).toFixed(1)]));
+    if (p.pz) tags.push(h('span', { class: 'ptag ptag-pz', title: t('ins_poster') }, ['🖼']));
     if (opts.score != null) tags.push(h('span', { class: 'ptag match' }, [t('s_match') + ' ' + opts.score]));
     var btn = h('button', {
       title: t('wish_hint'),
@@ -1325,7 +1395,7 @@
           p._loaded = true;
           loadPapers(opts.ref).then(function (list) {
             var f = (list || []).find(function (x) { return x.id === p.id; });
-            if (f) ['abs', 'absKo', 'link', 'psess', 'pos'].forEach(function (k) { if (f[k] && !p[k]) p[k] = f[k]; });
+            if (f) ['abs', 'absKo', 'link', 'psess', 'pos', 'ins', 'rv', 'pz'].forEach(function (k) { if (f[k] && !p[k]) p[k] = f[k]; });
             btn.click();
           });
           return;
@@ -1360,6 +1430,7 @@
           }
           item.appendChild(bodyEl);
           typeset(bodyEl);
+          if (p.ins && p.id) renderInsight(p, bodyEl);
         } else if (bodyEl) bodyEl.style.display = expanded ? '' : 'none';
       }
     }, [
